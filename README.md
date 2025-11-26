@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://badge.fury.io/py/genro-toolbox"><img src="https://badge.fury.io/py/genro-toolbox.svg" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/genro-toolbox/"><img src="https://img.shields.io/pypi/pyversions/genro-toolbox.svg" alt="Python"></a>
+  <a href="https://pypi.org/project/genro-toolbox/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
   <a href="https://github.com/genropy/genro-toolbox/actions/workflows/test.yml"><img src="https://github.com/genropy/genro-toolbox/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
   <a href="https://codecov.io/gh/genropy/genro-toolbox"><img src="https://codecov.io/gh/genropy/genro-toolbox/graph/badge.svg" alt="codecov"></a>
