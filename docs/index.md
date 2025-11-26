@@ -1,0 +1,95 @@
+<div align="center">
+  <img src="_static/logo.png" alt="Genro-Toolbox Logo" width="200"/>
+</div>
+
+# Genro-Toolbox
+
+**Essential utilities for the Genro ecosystem**
+
+Genro-Toolbox is a lightweight, zero-dependency Python library providing core utilities for the Genro ecosystem (genro-asgi, genro-routes, genro-api, etc.). Think of it as the foundation from which Genro solutions are built.
+
+## Features
+
+- **`extract_kwargs`** - Decorator for extracting and grouping keyword arguments by prefix
+- **`SmartOptions`** - Intelligent options merging with filtering and defaults
+- **`safe_is_instance`** - Type checking without imports
+- **`ascii_table`** - Beautiful ASCII and Markdown tables with formatting and hierarchies
+- **Three flexible styles** - Prefix style, dict style, and boolean activation
+- **Zero dependencies** - Pure Python standard library only
+- **Full type hints** - Complete typing support
+- **Python 3.10+** - Modern Python
+
+## Quick Example
+
+```python
+from genro_toolbox import extract_kwargs
+
+@extract_kwargs(logging=True, cache=True)
+def setup_service(name, logging_kwargs=None, cache_kwargs=None, **kwargs):
+    print(f"Logging config: {logging_kwargs}")
+    print(f"Cache config: {cache_kwargs}")
+
+# All these styles work:
+setup_service(
+    name="api",
+    logging_level="INFO",      # → logging_kwargs={'level': 'INFO'}
+    cache_ttl=300,             # → cache_kwargs={'ttl': 300}
+)
+
+setup_service(
+    name="api",
+    logging={'level': 'INFO'},  # Dict style
+    cache=True                  # Boolean activation
+)
+```
+
+## Documentation
+
+```{toctree}
+:maxdepth: 2
+:caption: Getting Started
+
+user-guide/installation
+user-guide/quickstart
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: User Guide
+
+user-guide/extract-kwargs
+user-guide/smart-options
+user-guide/safe-is-instance
+user-guide/ascii-table
+user-guide/best-practices
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Examples
+
+examples/index
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: API Reference
+
+api/reference
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Appendix
+
+appendix/architecture
+appendix/contributing
+```
+
+## Part of Genro-Modules
+
+Genro-Toolbox is part of the [Genro-Modules](https://github.com/softwell/meta-genro-modules) ecosystem.
+
+## License
+
+Apache License 2.0 - Copyright © 2025 Softwell Srl
