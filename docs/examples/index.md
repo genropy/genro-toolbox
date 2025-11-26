@@ -4,7 +4,7 @@ Real-world examples of using Genro-Toolbox.
 
 ## Genro Integration
 
-Genro-Toolbox was designed to support the Genro ecosystem. Here's how it's used:
+Genro-Toolbox was designed to support Genro Kyō. Here's how it's used:
 
 ```python
 from genro_toolbox import extract_kwargs

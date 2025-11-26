@@ -1,5 +1,5 @@
 """
-Genro-Toolbox - Essential utilities for the Genro ecosystem.
+Genro-Toolbox - Essential utilities for the Genro ecosystem (Genro Kyō).
 
 A lightweight, zero-dependency library providing core utilities.
 """

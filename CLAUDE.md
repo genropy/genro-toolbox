@@ -2,7 +2,7 @@
 
 ## Project Context
 
-**genro-toolbox** is a lightweight, zero-dependency Python library providing essential utilities for the Genro ecosystem.
+**genro-toolbox** is a lightweight, zero-dependency Python library providing essential utilities for the Genro ecosystem (Genro Kyō).
 
 Part of **genro-modules** (Apache 2.0 license).
 
@@ -61,7 +61,7 @@ This library is the **foundation** for utilities shared across:
 - genro-asgi
 - genro-routes
 - genro-api
-- Other Genro ecosystem projects
+- Other Genro Kyō projects
 
 ## Key Design Principles
 

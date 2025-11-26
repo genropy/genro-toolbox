@@ -1,6 +1,6 @@
 # Genro-Toolbox
 
-Essential utilities for the Genro ecosystem.
+Essential utilities for the Genro ecosystem (Genro Kyō).
 
 A lightweight, zero-dependency library providing core utilities that can be used across all Genro projects.
 
@@ -123,4 +123,4 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-Part of the Genro ecosystem. Contributions welcome via GitHub.
+Part of Genro Kyō. Contributions welcome via GitHub.

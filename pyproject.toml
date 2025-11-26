@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "genro-toolbox"
 version = "0.1.0"
-description = "Essential utilities for the Genro ecosystem"
+description = "Essential utilities for Genro Kyō"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
