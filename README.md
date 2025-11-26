@@ -2,6 +2,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/genro-toolbox.svg)](https://pypi.org/project/genro-toolbox/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Tests](https://github.com/genropy/genro-toolbox/actions/workflows/test.yml/badge.svg)](https://github.com/genropy/genro-toolbox/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/genropy/genro-toolbox/graph/badge.svg)](https://codecov.io/gh/genropy/genro-toolbox)
 [![Documentation](https://readthedocs.org/projects/genro-toolbox/badge/?version=latest)](https://genro-toolbox.readthedocs.io/)
 [![LLM Docs](https://img.shields.io/badge/LLM%20Docs-available-brightgreen)](llm-docs/)
 
