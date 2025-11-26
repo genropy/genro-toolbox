@@ -1,10 +1,16 @@
-[![PyPI version](https://badge.fury.io/py/genro-toolbox.svg)](https://badge.fury.io/py/genro-toolbox)
-[![Python](https://img.shields.io/pypi/pyversions/genro-toolbox.svg)](https://pypi.org/project/genro-toolbox/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://github.com/genropy/genro-toolbox/actions/workflows/test.yml/badge.svg)](https://github.com/genropy/genro-toolbox/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/genropy/genro-toolbox/graph/badge.svg)](https://codecov.io/gh/genropy/genro-toolbox)
-[![Documentation](https://readthedocs.org/projects/genro-toolbox/badge/?version=latest)](https://genro-toolbox.readthedocs.io/)
-[![LLM Docs](https://img.shields.io/badge/LLM%20Docs-available-brightgreen)](llm-docs/)
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Genro-Toolbox Logo" width="200">
+</p>
+
+<p align="center">
+  <a href="https://badge.fury.io/py/genro-toolbox"><img src="https://badge.fury.io/py/genro-toolbox.svg" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/genro-toolbox/"><img src="https://img.shields.io/pypi/pyversions/genro-toolbox.svg" alt="Python"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <a href="https://github.com/genropy/genro-toolbox/actions/workflows/test.yml"><img src="https://github.com/genropy/genro-toolbox/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
+  <a href="https://codecov.io/gh/genropy/genro-toolbox"><img src="https://codecov.io/gh/genropy/genro-toolbox/graph/badge.svg" alt="codecov"></a>
+  <a href="https://genro-toolbox.readthedocs.io/"><img src="https://readthedocs.org/projects/genro-toolbox/badge/?version=latest" alt="Documentation"></a>
+  <a href="llm-docs/"><img src="https://img.shields.io/badge/LLM%20Docs-available-brightgreen" alt="LLM Docs"></a>
+</p>
 
 # Genro-Toolbox
 
