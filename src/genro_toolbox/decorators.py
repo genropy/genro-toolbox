@@ -18,7 +18,9 @@ _POP_EXTRACT_OPTIONS = {"slice_prefix": True, "pop": True, "is_list": False}
 
 
 def extract_kwargs(
-    _adapter: str | None = None, _dictkwargs: dict[str, Any] | None = None, **extraction_specs: Any
+    _adapter: str | None = None,
+    _dictkwargs: dict[str, Any] | None = None,
+    **extraction_specs: Any,
 ) -> Callable[[F], F]:
     """A decorator that extracts ``**kwargs`` into sub-families by prefix.
 

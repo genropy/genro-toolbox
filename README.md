@@ -1,8 +1,19 @@
+[![PyPI version](https://badge.fury.io/py/genro-toolbox.svg)](https://badge.fury.io/py/genro-toolbox)
+[![Python](https://img.shields.io/pypi/pyversions/genro-toolbox.svg)](https://pypi.org/project/genro-toolbox/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Tests](https://github.com/genropy/genro-toolbox/actions/workflows/test.yml/badge.svg)](https://github.com/genropy/genro-toolbox/actions/workflows/test.yml)
+[![Documentation](https://readthedocs.org/projects/genro-toolbox/badge/?version=latest)](https://genro-toolbox.readthedocs.io/)
+[![LLM Docs](https://img.shields.io/badge/LLM%20Docs-available-brightgreen)](llm-docs/)
+
 # Genro-Toolbox
 
-Essential utilities for the Genro ecosystem (Genro Kyō).
+> Essential utilities for the Genro ecosystem
 
-A lightweight, zero-dependency library providing core utilities that can be used across all Genro projects.
+Part of [Genro Kyō](https://github.com/genropy) ecosystem.
+
+A lightweight, zero-dependency Python library providing core utilities that can be used across all Genro projects.
+
+📚 **[Full Documentation](https://genro-toolbox.readthedocs.io/)**
 
 ## Installation
 
@@ -12,28 +23,32 @@ pip install genro-toolbox
 
 ## Features
 
-### SmartOptions
+- **SmartOptions** - Merge runtime kwargs with defaults
+- **extract_kwargs** - Decorator to group kwargs by prefix
+- **safe_is_instance** - isinstance() without importing the class
+- **render_ascii_table** - ASCII table rendering with formatting
+- **render_markdown_table** - Markdown table rendering
 
-A convenience namespace for merging runtime kwargs with defaults:
+## Examples
+
+### SmartOptions
 
 ```python
 from genro_toolbox import SmartOptions
 
 opts = SmartOptions(
-    {"timeout": 30},  # runtime values
-    {"timeout": 10, "retries": 3},  # defaults
+    {"timeout": 30},                    # runtime values
+    {"timeout": 10, "retries": 3},      # defaults
     ignore_none=True,
     ignore_empty=True,
 )
 
-print(opts.timeout)  # 30 (from runtime)
-print(opts.retries)  # 3 (from defaults)
-print(opts.as_dict())  # {"timeout": 30, "retries": 3}
+opts.timeout   # 30 (runtime wins)
+opts.retries   # 3 (from defaults)
+opts.as_dict() # {"timeout": 30, "retries": 3}
 ```
 
 ### extract_kwargs Decorator
-
-Extract prefixed kwargs into grouped dictionaries:
 
 ```python
 from genro_toolbox import extract_kwargs
@@ -42,39 +57,28 @@ from genro_toolbox import extract_kwargs
 def my_function(name, logging_kwargs=None, cache_kwargs=None, **kwargs):
     print(f"logging: {logging_kwargs}")
     print(f"cache: {cache_kwargs}")
-    print(f"other: {kwargs}")
 
 my_function(
     "test",
     logging_level="INFO",
     logging_format="json",
     cache_ttl=300,
-    timeout=30,
 )
-# Output:
 # logging: {'level': 'INFO', 'format': 'json'}
 # cache: {'ttl': 300}
-# other: {'timeout': 30}
 ```
 
 ### safe_is_instance
 
-Check if an object is an instance of a class by its fully qualified name, without importing:
-
 ```python
 from genro_toolbox import safe_is_instance
 
-# Works with any object
-safe_is_instance(42, "builtins.int")  # True
-safe_is_instance("hello", "builtins.str")  # True
-
-# Works with custom classes (includes subclass recognition)
-safe_is_instance(my_obj, "mypackage.models.BaseNode")
+# Check type without importing
+safe_is_instance(42, "builtins.int")              # True
+safe_is_instance(my_obj, "mypackage.BaseClass")   # True (includes subclasses)
 ```
 
 ### ASCII & Markdown Tables
-
-Render data as formatted tables:
 
 ```python
 from genro_toolbox import render_ascii_table, render_markdown_table
@@ -82,29 +86,22 @@ from genro_toolbox import render_ascii_table, render_markdown_table
 data = {
     "headers": [
         {"name": "Name", "type": "str"},
-        {"name": "Age", "type": "int"},
         {"name": "Active", "type": "bool"},
     ],
     "rows": [
-        ["Alice", "25", "yes"],
-        ["Bob", "30", "no"],
+        ["Alice", "yes"],
+        ["Bob", "no"],
     ],
 }
 
 print(render_ascii_table(data))
-# +-------+-----+--------+
-# |Name   |Age  |Active  |
-# +-------+-----+--------+
-# |Alice  |25   |true    |
-# +-------+-----+--------+
-# |Bob    |30   |false   |
-# +-------+-----+--------+
-
-print(render_markdown_table(data))
-# | Name | Age | Active |
-# | --- | --- | --- |
-# | Alice | 25 | true |
-# | Bob | 30 | false |
+# +-------+--------+
+# |Name   |Active  |
+# +-------+--------+
+# |Alice  |true    |
+# +-------+--------+
+# |Bob    |false   |
+# +-------+--------+
 ```
 
 ## Philosophy
@@ -115,12 +112,10 @@ This library serves as the foundation for utilities shared across:
 - genro-asgi
 - genro-routes
 - genro-api
-- Other Genro ecosystem projects
+- Other Genro Kyō projects
 
 ## License
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
-## Contributing
-
-Part of Genro Kyō. Contributions welcome via GitHub.
+Copyright 2025 Softwell S.r.l.

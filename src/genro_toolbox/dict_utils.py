@@ -159,7 +159,10 @@ def dictExtract(mydict, prefix, pop=False, slice_prefix=True, is_list=False):
     reserved_names = ["class"]
     return dict(
         [
-            (k[lprefix:] if k[lprefix:] not in reserved_names else f"_{k[lprefix:]}", cb(k))
+            (
+                k[lprefix:] if k[lprefix:] not in reserved_names else f"_{k[lprefix:]}",
+                cb(k),
+            )
             for k in list(mydict.keys())
             if k.startswith(prefix)
         ]

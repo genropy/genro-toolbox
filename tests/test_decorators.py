@@ -6,6 +6,7 @@ from genro_toolbox import extract_kwargs
 
 class DummyClass:
     """Dummy class for testing extract_kwargs decorator (requires self)."""
+
     pass
 
 
@@ -20,7 +21,9 @@ class TestExtractKwargsBasic:
         def func(self, name, logging_kwargs=None, **kwargs):
             return {"logging": logging_kwargs, "other": kwargs}
 
-        result = func(dummy, name="test", logging_level="INFO", logging_format="json", timeout=30)
+        result = func(
+            dummy, name="test", logging_level="INFO", logging_format="json", timeout=30
+        )
 
         assert result["logging"] == {"level": "INFO", "format": "json"}
         assert result["other"] == {"timeout": 30}
@@ -39,7 +42,7 @@ class TestExtractKwargsBasic:
             logging_level="INFO",
             cache_ttl=300,
             cache_backend="redis",
-            timeout=30
+            timeout=30,
         )
 
         assert result["logging"] == {"level": "INFO"}
@@ -64,7 +67,7 @@ class TestExtractKwargsBasic:
         """Test extraction with pop=False (keeps params in source)."""
         dummy = DummyClass()
 
-        @extract_kwargs(logging={'pop': False})
+        @extract_kwargs(logging={"pop": False})
         def func(self, name, logging_kwargs=None, **kwargs):
             return {"logging": logging_kwargs, "other": kwargs}
 
@@ -78,7 +81,7 @@ class TestExtractKwargsBasic:
         """Test extraction without slicing prefix."""
         dummy = DummyClass()
 
-        @extract_kwargs(logging={'slice_prefix': False, 'pop': True})
+        @extract_kwargs(logging={"slice_prefix": False, "pop": True})
         def func(self, name, logging_kwargs=None, **kwargs):
             return {"logging": logging_kwargs, "other": kwargs}
 
@@ -115,7 +118,7 @@ class TestExtractKwargsBasic:
             name="test",
             logging_kwargs={"existing": "value"},
             logging_level="INFO",
-            timeout=30
+            timeout=30,
         )
 
         # Should merge
@@ -132,16 +135,10 @@ class TestExtractKwargsBasic:
         def func(self, name, logging_kwargs=None, cache_kwargs=None, **kwargs):
             return {"logging": logging_kwargs, "cache": cache_kwargs}
 
-        result = func(
-            dummy,
-            name="test",
-            logging_level="INFO",
-            cache_ttl=300
-        )
+        result = func(dummy, name="test", logging_level="INFO", cache_ttl=300)
 
         assert result["logging"] == {"level": "INFO"}
         assert result["cache"] == {"ttl": 300}
-
 
     def test_non_dict_kwargs_parameter(self):
         """Test that non-dict values for {prefix}_kwargs are handled gracefully."""
@@ -185,9 +182,9 @@ class TestExtractKwargsAdapter:
                 self.adapter_called = True
                 self.adapter_kwargs = dict(kwargs)
                 # Adapter can modify kwargs
-                kwargs['modified_by_adapter'] = True
+                kwargs["modified_by_adapter"] = True
 
-            @extract_kwargs(_adapter='my_adapter', logging=True)
+            @extract_kwargs(_adapter="my_adapter", logging=True)
             def my_method(self, name, logging_kwargs=None, **kwargs):
                 return {"logging": logging_kwargs, "other": kwargs}
 
@@ -204,7 +201,7 @@ class TestExtractKwargsAdapter:
         """Test that missing _adapter doesn't cause error."""
 
         class ClassWithoutAdapter:
-            @extract_kwargs(_adapter='nonexistent_adapter', logging=True)
+            @extract_kwargs(_adapter="nonexistent_adapter", logging=True)
             def my_method(self, name, logging_kwargs=None, **kwargs):
                 return {"logging": logging_kwargs, "other": kwargs}
 

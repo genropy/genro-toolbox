@@ -192,10 +192,7 @@ class TestTreeOperations:
 
     def test_apply_hierarchy_simple(self):
         """Apply hierarchy with indentation."""
-        headers = [
-            {"name": "Path", "hierarchy": {"sep": "/"}},
-            {"name": "Value"}
-        ]
+        headers = [{"name": "Path", "hierarchy": {"sep": "/"}}, {"name": "Value"}]
         rows = [
             ["root/child1", "10"],
             ["root/child2", "20"],
@@ -206,10 +203,7 @@ class TestTreeOperations:
 
     def test_apply_hierarchy_no_hierarchy_column(self):
         """No hierarchy column returns rows unchanged."""
-        headers = [
-            {"name": "Name"},
-            {"name": "Value"}
-        ]
+        headers = [{"name": "Name"}, {"name": "Value"}]
         rows = [["foo", "bar"]]
         result = apply_hierarchy(headers, rows)
         assert result == rows
@@ -282,7 +276,7 @@ class TestDrawTable:
         """Draw simple table."""
         headers = [
             {"name": "Name", "align": "left"},
-            {"name": "Value", "align": "right"}
+            {"name": "Value", "align": "right"},
         ]
         rows = [["foo", "123"], ["bar", "456"]]
         result = draw_table(headers, rows)
@@ -311,12 +305,9 @@ class TestTableFromStruct:
         data = {
             "headers": [
                 {"name": "Name", "type": "str"},
-                {"name": "Age", "type": "int"}
+                {"name": "Age", "type": "int"},
             ],
-            "rows": [
-                ["Alice", "25"],
-                ["Bob", "30"]
-            ]
+            "rows": [["Alice", "25"], ["Bob", "30"]],
         }
         result = render_ascii_table(data)
         assert "Name" in result
@@ -328,10 +319,8 @@ class TestTableFromStruct:
         """Generate table with title."""
         data = {
             "title": "User List",
-            "headers": [
-                {"name": "Name", "type": "str"}
-            ],
-            "rows": [["Alice"]]
+            "headers": [{"name": "Name", "type": "str"}],
+            "rows": [["Alice"]],
         }
         result = render_ascii_table(data)
         assert "User List" in result
@@ -343,12 +332,9 @@ class TestTableFromStruct:
             "headers": [
                 {"name": "Name", "type": "str"},
                 {"name": "Active", "type": "bool"},
-                {"name": "Score", "type": "float", "format": ".1f"}
+                {"name": "Score", "type": "float", "format": ".1f"},
             ],
-            "rows": [
-                ["Alice", "yes", 95.67],
-                ["Bob", "no", 87.32]
-            ]
+            "rows": [["Alice", "yes", 95.67], ["Bob", "no", 87.32]],
         }
         result = render_ascii_table(data)
         assert "true" in result  # yes -> true
@@ -361,11 +347,9 @@ class TestTableFromStruct:
         data = {
             "headers": [
                 {"name": "Date", "type": "date", "format": "dd/mm/yyyy"},
-                {"name": "DateTime", "type": "datetime"}
+                {"name": "DateTime", "type": "datetime"},
             ],
-            "rows": [
-                ["2025-11-24", "2025-11-24T10:30:00"]
-            ]
+            "rows": [["2025-11-24", "2025-11-24T10:30:00"]],
         }
         result = render_ascii_table(data)
         assert "24/11/2025" in result
@@ -375,10 +359,8 @@ class TestTableFromStruct:
         """Generate table respecting max_width."""
         data = {
             "max_width": 50,
-            "headers": [
-                {"name": "Text", "type": "str"}
-            ],
-            "rows": [["x" * 100]]
+            "headers": [{"name": "Text", "type": "str"}],
+            "rows": [["x" * 100]],
         }
         result = render_ascii_table(data)
         lines = result.split("\n")
@@ -395,12 +377,9 @@ class TestRenderMarkdownTable:
         data = {
             "headers": [
                 {"name": "Name", "type": "str"},
-                {"name": "Value", "type": "int"}
+                {"name": "Value", "type": "int"},
             ],
-            "rows": [
-                ["Alice", "25"],
-                ["Bob", "30"]
-            ]
+            "rows": [["Alice", "25"], ["Bob", "30"]],
         }
         result = render_markdown_table(data)
 
@@ -414,12 +393,9 @@ class TestRenderMarkdownTable:
         data = {
             "headers": [
                 {"name": "Active", "type": "bool"},
-                {"name": "Score", "type": "float", "format": ".2f"}
+                {"name": "Score", "type": "float", "format": ".2f"},
             ],
-            "rows": [
-                ["yes", 95.678],
-                ["no", 87.321]
-            ]
+            "rows": [["yes", 95.678], ["no", 87.321]],
         }
         result = render_markdown_table(data)
 
@@ -438,12 +414,12 @@ class TestWordWrapping:
             "max_width": 60,
             "headers": [
                 {"name": "Command", "type": "str"},
-                {"name": "Description", "type": "str"}
+                {"name": "Description", "type": "str"},
             ],
             "rows": [
                 ["add_application", "Add a new application to registry"],
-                ["configure_plugins", "Configure runtime plugin options"]
-            ]
+                ["configure_plugins", "Configure runtime plugin options"],
+            ],
         }
         result = render_ascii_table(data)
 
@@ -455,12 +431,8 @@ class TestWordWrapping:
         """Wrapping should happen on word boundaries."""
         data = {
             "max_width": 50,
-            "headers": [
-                {"name": "Text", "type": "str"}
-            ],
-            "rows": [
-                ["This is a long sentence that needs wrapping"]
-            ]
+            "headers": [{"name": "Text", "type": "str"}],
+            "rows": [["This is a long sentence that needs wrapping"]],
         }
         result = render_ascii_table(data)
 
@@ -482,13 +454,13 @@ class TestIntegration:
                 {"name": "Region", "type": "str", "align": "left"},
                 {"name": "Revenue", "type": "float", "format": ".2f", "align": "right"},
                 {"name": "Active", "type": "bool", "align": "center"},
-                {"name": "Date", "type": "date", "format": "dd/mm/yyyy"}
+                {"name": "Date", "type": "date", "format": "dd/mm/yyyy"},
             ],
             "rows": [
                 ["North", 12345.67, "yes", "2025-11-24"],
                 ["South", 9876.54, "no", "2025-11-23"],
-                ["East", 15432.10, "true", "2025-11-22"]
-            ]
+                ["East", 15432.10, "true", "2025-11-22"],
+            ],
         }
         result = render_ascii_table(data)
 
@@ -511,13 +483,13 @@ class TestIntegration:
         data = {
             "headers": [
                 {"name": "Path", "type": "str", "hierarchy": {"sep": "/"}},
-                {"name": "Size", "type": "int"}
+                {"name": "Size", "type": "int"},
             ],
             "rows": [
                 ["root/docs/file1.txt", "1024"],
                 ["root/docs/file2.txt", "2048"],
-                ["root/src/main.py", "4096"]
-            ]
+                ["root/src/main.py", "4096"],
+            ],
         }
         result = render_ascii_table(data)
 
