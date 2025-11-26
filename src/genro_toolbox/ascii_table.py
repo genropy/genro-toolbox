@@ -8,7 +8,7 @@ and hierarchical data.
 
 import re
 import textwrap
-from datetime import datetime, date
+from datetime import datetime
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -54,24 +54,24 @@ def format_cell(value, coldef):
     if ctype == "int":
         try:
             return str(int(value))
-        except:
+        except Exception:
             return str(value)
     if ctype == "float":
         try:
             f = float(value)
             return format(f, fmt) if fmt else f"{f:g}"
-        except:
+        except Exception:
             return str(value)
     if ctype == "date":
         try:
             d = datetime.fromisoformat(str(value)).date()
-        except:
+        except Exception:
             return str(value)
         return d.strftime(normalize_date_format(fmt)) if fmt else d.isoformat()
     if ctype == "datetime":
         try:
             dt = datetime.fromisoformat(str(value))
-        except:
+        except Exception:
             return str(value)
         return (
             dt.strftime(normalize_date_format(fmt))

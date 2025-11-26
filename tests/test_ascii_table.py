@@ -1,7 +1,5 @@
 """Tests for ascii_table module."""
 
-import pytest
-from datetime import datetime, date
 from genro_toolbox.ascii_table import (
     render_ascii_table,
     render_markdown_table,

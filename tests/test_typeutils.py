@@ -1,6 +1,5 @@
 """Tests for the typeutils module."""
 
-import pytest
 from genro_toolbox import safe_is_instance
 
 
@@ -130,7 +129,7 @@ class TestSafeIsInstance:
         # Second call should use cached result
         result2 = safe_is_instance(obj2, f"{MyClass.__module__}.{MyClass.__qualname__}")
 
-        assert result1 == result2 == True
+        assert result1 is True and result2 is True
 
 
 class TestSafeIsInstanceEdgeCases:

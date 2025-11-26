@@ -1,6 +1,5 @@
 """Tests for extract_kwargs decorator."""
 
-import pytest
 from genro_toolbox import extract_kwargs
 
 
