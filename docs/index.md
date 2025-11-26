@@ -43,46 +43,22 @@ setup_service(
 )
 ```
 
-## Documentation
-
 ```{toctree}
 :maxdepth: 2
-:caption: Getting Started
+:caption: Contents
+:hidden:
 
+self
 user-guide/installation
 user-guide/quickstart
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: User Guide
-
 user-guide/extract-kwargs
 user-guide/smart-options
 user-guide/safe-is-instance
 user-guide/ascii-table
 user-guide/best-practices
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Examples
-
 examples/index
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Reference
-
 api/reference
 faq
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Appendix
-
 appendix/architecture
 appendix/contributing
 ```
