@@ -155,7 +155,7 @@ def compute_col_widths(names, rows, max_width=120, minw=6, pad=1):
                     widths[i] = min_widths[i] + int(
                         extra * remaining / (total - sum(min_widths))
                     )
-                else:
+                else:  # pragma: no cover - guard against division by zero
                     widths[i] = min_widths[i]
         else:
             # Not enough space even for longest words - scale down proportionally

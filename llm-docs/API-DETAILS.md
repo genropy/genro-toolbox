@@ -32,6 +32,64 @@ class SmartOptions(SimpleNamespace):
 
 ---
 
+## MultiDefault
+
+```python
+class MultiDefault(Mapping[str, Any]):
+    def __init__(
+        self,
+        *sources: Any,
+        skip_missing: bool = False,
+        types: dict[str, type] | None = None,
+    ): ...
+
+    def resolve(self) -> dict[str, Any]: ...
+
+    @property
+    def sources(self) -> tuple[Any, ...]: ...
+    @property
+    def skip_missing(self) -> bool: ...
+    @property
+    def types(self) -> dict[str, type]: ...
+```
+
+**Parameters**:
+- `*sources`: Config sources (dict, file path, `"ENV:PREFIX"`, Path)
+- `skip_missing`: Ignore missing files (default: False)
+- `types`: Explicit type conversion map `{'key': int, ...}`
+
+**Supported sources**:
+- `dict`: Used directly, nested dicts flattened with `_`
+- `.ini`: ConfigParser format, **all values are strings**
+- `.json`: JSON format, types preserved
+- `.toml`: TOML format (Python 3.11+ or tomli), types preserved
+- `.yaml`: YAML format (pyyaml required), types preserved
+- `"ENV:PREFIX"`: Environment variables, **all values are strings**
+
+**Behavior**:
+- Later sources override earlier ones
+- Nested dicts flattened: `{'a': {'b': 1}}` → `{'a_b': 1}`
+- Implements `Mapping` protocol (usable as SmartOptions defaults)
+- `types` converts after loading: `{'port': int}` converts `"8000"` → `8000`
+
+**Type conversion for bool**:
+- `"true"`, `"yes"`, `"on"`, `"1"` → `True`
+- All other strings → `False`
+
+**Example**:
+```python
+defaults = MultiDefault(
+    {'host': 'localhost'},
+    'config.ini',
+    'ENV:MYAPP',
+    skip_missing=True,
+    types={'port': int, 'debug': bool}
+)
+opts = SmartOptions(incoming={'port': 9000}, defaults=defaults)
+```
+
+---
+
 ## extract_kwargs
 
 ```python

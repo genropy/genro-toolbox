@@ -25,12 +25,13 @@ import pytest
 
 from genro_toolbox.multi_default import (
     MultiDefault,
-    auto_convert,
     flatten_dict,
     load_env,
     load_file,
     load_ini,
     load_json,
+    load_toml,
+    load_yaml,
 )
 
 if TYPE_CHECKING:
@@ -104,80 +105,6 @@ def env_vars() -> Generator[None, None, None]:
 
 
 # =============================================================================
-# Tests: auto_convert
-# =============================================================================
-
-
-class TestAutoConvert:
-    """Tests for auto_convert function."""
-
-    def test_integer_positive(self) -> None:
-        """Convert positive integer string."""
-        assert auto_convert("123") == 123
-        assert isinstance(auto_convert("123"), int)
-
-    def test_integer_negative(self) -> None:
-        """Convert negative integer string."""
-        assert auto_convert("-456") == -456
-        assert isinstance(auto_convert("-456"), int)
-
-    def test_integer_zero(self) -> None:
-        """Convert zero."""
-        assert auto_convert("0") == 0
-        assert isinstance(auto_convert("0"), int)
-
-    def test_float_positive(self) -> None:
-        """Convert positive float string."""
-        assert auto_convert("12.5") == 12.5
-        assert isinstance(auto_convert("12.5"), float)
-
-    def test_float_negative(self) -> None:
-        """Convert negative float string."""
-        assert auto_convert("-3.14") == -3.14
-        assert isinstance(auto_convert("-3.14"), float)
-
-    def test_float_leading_dot(self) -> None:
-        """Float with leading dot."""
-        assert auto_convert(".5") == 0.5
-
-    def test_float_trailing_dot(self) -> None:
-        """Float with trailing dot."""
-        assert auto_convert("5.") == 5.0
-
-    def test_bool_true_variants(self) -> None:
-        """Convert various true values to True."""
-        for value in ["true", "True", "TRUE", "yes", "Yes", "on", "ON", "1"]:
-            assert auto_convert(value) is True, f"Failed for {value!r}"
-
-    def test_bool_false_variants(self) -> None:
-        """Convert various false values to False."""
-        for value in ["false", "False", "FALSE", "no", "No", "off", "OFF", "0"]:
-            assert auto_convert(value) is False, f"Failed for {value!r}"
-
-    def test_none_variants(self) -> None:
-        """Convert none/null to None."""
-        for value in ["none", "None", "NONE", "null", "Null", "NULL", ""]:
-            assert auto_convert(value) is None, f"Failed for {value!r}"
-
-    def test_string_unchanged(self) -> None:
-        """Regular strings remain unchanged."""
-        assert auto_convert("hello") == "hello"
-        assert auto_convert("localhost") == "localhost"
-        assert auto_convert("/path/to/file") == "/path/to/file"
-
-    def test_whitespace_handling(self) -> None:
-        """Whitespace is stripped before conversion."""
-        assert auto_convert("  123  ") == 123
-        assert auto_convert("  true  ") is True
-
-    def test_non_string_passthrough(self) -> None:
-        """Non-string values pass through unchanged."""
-        assert auto_convert(123) == 123  # type: ignore[arg-type]
-        assert auto_convert(True) is True  # type: ignore[arg-type]
-        assert auto_convert(None) is None  # type: ignore[arg-type]
-
-
-# =============================================================================
 # Tests: flatten_dict
 # =============================================================================
 
@@ -242,13 +169,13 @@ class TestLoadIni:
     """Tests for load_ini function."""
 
     def test_load_basic(self, temp_ini_file: Path) -> None:
-        """Load basic .ini file."""
+        """Load basic .ini file - all values are strings."""
         result = load_ini(temp_ini_file)
 
         assert "server" in result
         assert result["server"]["host"] == "localhost"
-        assert result["server"]["port"] == 8000  # auto-converted to int
-        assert result["server"]["debug"] is True  # auto-converted to bool
+        assert result["server"]["port"] == "8000"  # string, not int
+        assert result["server"]["debug"] == "true"  # string, not bool
 
         assert "logging" in result
         assert result["logging"]["level"] == "INFO"
@@ -288,6 +215,84 @@ class TestLoadJson:
 
 
 # =============================================================================
+# Tests: load_toml
+# =============================================================================
+
+
+class TestLoadToml:
+    """Tests for load_toml function."""
+
+    def test_load_basic(self, tmp_path: Path) -> None:
+        """Load basic .toml file - preserves types."""
+        content = """\
+[server]
+host = "localhost"
+port = 8000
+debug = true
+
+[logging]
+level = "INFO"
+"""
+        file_path = tmp_path / "config.toml"
+        file_path.write_text(content)
+
+        result = load_toml(file_path)
+
+        assert result["server"]["host"] == "localhost"
+        assert result["server"]["port"] == 8000  # int preserved
+        assert result["server"]["debug"] is True  # bool preserved
+        assert result["logging"]["level"] == "INFO"
+
+    def test_file_not_found(self, tmp_path: Path) -> None:
+        """Raise FileNotFoundError for missing file."""
+        with pytest.raises(FileNotFoundError):
+            load_toml(tmp_path / "nonexistent.toml")
+
+
+# =============================================================================
+# Tests: load_yaml
+# =============================================================================
+
+
+class TestLoadYaml:
+    """Tests for load_yaml function."""
+
+    def test_load_basic(self, tmp_path: Path) -> None:
+        """Load basic .yaml file - preserves types."""
+        content = """\
+server:
+  host: localhost
+  port: 8000
+  debug: true
+
+logging:
+  level: INFO
+"""
+        file_path = tmp_path / "config.yaml"
+        file_path.write_text(content)
+
+        result = load_yaml(file_path)
+
+        assert result["server"]["host"] == "localhost"
+        assert result["server"]["port"] == 8000  # int preserved
+        assert result["server"]["debug"] is True  # bool preserved
+        assert result["logging"]["level"] == "INFO"
+
+    def test_file_not_found(self, tmp_path: Path) -> None:
+        """Raise FileNotFoundError for missing file."""
+        with pytest.raises(FileNotFoundError):
+            load_yaml(tmp_path / "nonexistent.yaml")
+
+    def test_empty_file_returns_empty_dict(self, tmp_path: Path) -> None:
+        """Empty yaml file returns empty dict."""
+        file_path = tmp_path / "empty.yaml"
+        file_path.write_text("")
+
+        result = load_yaml(file_path)
+        assert result == {}
+
+
+# =============================================================================
 # Tests: load_file (auto-detect)
 # =============================================================================
 
@@ -323,14 +328,14 @@ class TestLoadEnv:
     """Tests for load_env function."""
 
     def test_load_with_prefix(self, env_vars: None) -> None:
-        """Load env vars with prefix."""
+        """Load env vars with prefix - all values are strings."""
         result = load_env("TESTAPP")
 
         assert result["server_host"] == "envhost"
-        assert result["server_port"] == 9000  # auto-converted
-        assert result["debug"] is True  # auto-converted
-        assert result["timeout"] == 30.5  # auto-converted
-        assert result["empty"] is None  # empty string → None
+        assert result["server_port"] == "9000"  # string, not int
+        assert result["debug"] == "true"  # string, not bool
+        assert result["timeout"] == "30.5"  # string, not float
+        assert result["empty"] == ""  # empty string stays empty
 
     def test_prefix_not_matched(self, env_vars: None) -> None:
         """Vars without prefix are ignored."""
@@ -372,16 +377,16 @@ class TestMultiDefault:
         assert "server" not in defaults
 
     def test_single_file_source(self, temp_ini_file: Path) -> None:
-        """Single file source."""
+        """Single file source - values are strings."""
         defaults = MultiDefault(str(temp_ini_file))
         assert defaults["server_host"] == "localhost"
-        assert defaults["server_port"] == 8000
+        assert defaults["server_port"] == "8000"  # string from ini
 
     def test_single_env_source(self, env_vars: None) -> None:
-        """Single env source."""
+        """Single env source - values are strings."""
         defaults = MultiDefault("ENV:TESTAPP")
         assert defaults["server_host"] == "envhost"
-        assert defaults["server_port"] == 9000
+        assert defaults["server_port"] == "9000"  # string from env
 
     def test_priority_later_overrides_earlier(self, temp_ini_file: Path) -> None:
         """Later sources override earlier ones."""
@@ -390,7 +395,7 @@ class TestMultiDefault:
             str(temp_ini_file),  # has server.host=localhost, server.port=8000
         )
         assert defaults["server_host"] == "localhost"  # overridden by file
-        assert defaults["server_port"] == 8000  # overridden by file
+        assert defaults["server_port"] == "8000"  # overridden by file (string)
 
     def test_priority_env_overrides_file(
         self, temp_ini_file: Path, env_vars: None
@@ -501,6 +506,96 @@ class TestMultiDefault:
         assert defaults.sources == ("a.ini", "b.json")
         assert defaults.skip_missing is True
 
+    def test_types_property(self) -> None:
+        """Types property returns the types dict."""
+        defaults = MultiDefault({"port": "8000"}, types={"port": int})
+        assert defaults.types == {"port": int}
+
+    def test_types_converts_string_to_int(self) -> None:
+        """Types parameter converts string to int."""
+        defaults = MultiDefault({"port": "8000"}, types={"port": int})
+        assert defaults["port"] == 8000
+        assert isinstance(defaults["port"], int)
+
+    def test_types_converts_string_to_float(self) -> None:
+        """Types parameter converts string to float."""
+        defaults = MultiDefault({"timeout": "30.5"}, types={"timeout": float})
+        assert defaults["timeout"] == 30.5
+        assert isinstance(defaults["timeout"], float)
+
+    def test_types_converts_string_to_bool_true(self) -> None:
+        """Types parameter converts string to bool True."""
+        defaults = MultiDefault(
+            {"debug": "true", "verbose": "yes", "active": "1"},
+            types={"debug": bool, "verbose": bool, "active": bool},
+        )
+        assert defaults["debug"] is True
+        assert defaults["verbose"] is True
+        assert defaults["active"] is True
+
+    def test_types_converts_string_to_bool_false(self) -> None:
+        """Types parameter converts string to bool False."""
+        defaults = MultiDefault(
+            {"debug": "false", "verbose": "no", "active": "0"},
+            types={"debug": bool, "verbose": bool, "active": bool},
+        )
+        assert defaults["debug"] is False
+        assert defaults["verbose"] is False
+        assert defaults["active"] is False
+
+    def test_types_converts_ini_values(self, tmp_path: Path) -> None:
+        """Types parameter converts string values from ini files."""
+        ini_file = tmp_path / "config.ini"
+        ini_file.write_text("[app]\nversion = 00123\nport = 8080\n")
+
+        # Without types, values are strings
+        defaults_without_types = MultiDefault(str(ini_file))
+        assert defaults_without_types["app_version"] == "00123"  # string
+        assert defaults_without_types["app_port"] == "8080"  # string
+
+        # With types, values are converted
+        defaults_with_types = MultiDefault(str(ini_file), types={"app_port": int})
+        assert defaults_with_types["app_version"] == "00123"  # still string
+        assert defaults_with_types["app_port"] == 8080  # converted to int
+
+    def test_types_skips_none_values(self) -> None:
+        """Types parameter skips None values."""
+        defaults = MultiDefault({"port": None}, types={"port": int})
+        assert defaults["port"] is None
+
+    def test_types_skips_already_correct_type(self) -> None:
+        """Types parameter skips values already of correct type."""
+        defaults = MultiDefault({"port": 8000}, types={"port": int})
+        assert defaults["port"] == 8000
+        assert isinstance(defaults["port"], int)
+
+    def test_types_keeps_original_on_conversion_failure(self) -> None:
+        """Types parameter keeps original value on conversion failure."""
+        defaults = MultiDefault({"port": "not_a_number"}, types={"port": int})
+        assert defaults["port"] == "not_a_number"
+
+    def test_types_in_repr(self) -> None:
+        """Types is included in repr."""
+        defaults = MultiDefault({"a": 1}, types={"a": int})
+        repr_str = repr(defaults)
+        assert "types=" in repr_str
+        assert "int" in repr_str
+
+    def test_types_not_in_repr_when_empty(self) -> None:
+        """Types is not included in repr when empty."""
+        defaults = MultiDefault({"a": 1})
+        repr_str = repr(defaults)
+        assert "types=" not in repr_str
+
+    def test_types_ignores_missing_keys(self) -> None:
+        """Types parameter ignores keys not present in sources."""
+        defaults = MultiDefault(
+            {"port": "8000"},
+            types={"port": int, "timeout": float},  # timeout not in sources
+        )
+        assert defaults["port"] == 8000
+        assert "timeout" not in defaults
+
 
 # =============================================================================
 # Tests: Integration with SmartOptions
@@ -551,7 +646,7 @@ class TestMultiDefaultWithSmartOptions:
         )
 
         assert opts.server_host == "incoming_host"  # incoming wins
-        assert opts.server_port == 9000  # from env
+        assert opts.server_port == "9000"  # from env (string)
         assert opts.logging_level == "INFO"  # from file
         assert opts.custom_key == "from_dict"  # from dict
 
@@ -560,7 +655,7 @@ class TestMultiDefaultWithSmartOptions:
         from genro_toolbox import SmartOptions
 
         defaults = MultiDefault({"empty": "default_value"}, "ENV:TESTAPP")
-        # env has TESTAPP_EMPTY="" which becomes None
+        # env has TESTAPP_EMPTY="" which is now kept as empty string
 
         opts = SmartOptions(
             incoming={"empty": None},
@@ -568,6 +663,5 @@ class TestMultiDefaultWithSmartOptions:
             ignore_none=True,
         )
 
-        # incoming None is ignored, so env value (None) should be used
-        # But env value is also None, so we get None
-        assert opts.empty is None
+        # incoming None is ignored, so env value ("") is used
+        assert opts.empty == ""

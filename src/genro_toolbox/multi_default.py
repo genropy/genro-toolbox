@@ -25,8 +25,8 @@ Architecture
 
 ::
 
-    MultiDefault(*sources)
-        ↓ resolve() + flatten
+    MultiDefault(*sources, types={...})
+        ↓ resolve() + flatten + convert
     dict (flat: {'section_key': value, ...})
         ↓
     SmartOptions(incoming, defaults)
@@ -35,6 +35,22 @@ Architecture
 
 Sources are processed in order, with later sources overriding earlier ones.
 Nested structures are flattened using underscore as separator.
+
+Type Conversion
+---------------
+
+By default, all values from files and environment variables are kept as strings.
+Use the ``types`` parameter for explicit type conversion::
+
+    defaults = MultiDefault(
+        'config.ini',
+        'ENV:MYAPP',
+        types={
+            'server_port': int,
+            'server_debug': bool,
+            'timeout': float,
+        }
+    )
 
 Supported Sources
 -----------------
@@ -45,30 +61,18 @@ dict
 
 str (file path)
     File path with extension determining the format. Supported formats:
-    - ``.ini`` - ConfigParser format (stdlib)
-    - ``.json`` - JSON format (stdlib)
-    - ``.toml`` - TOML format (tomllib Python 3.11+ or tomli package)
-    - ``.yaml``, ``.yml`` - YAML format (pyyaml package required)
+    - ``.ini`` - ConfigParser format (stdlib) - values are strings
+    - ``.json`` - JSON format (stdlib) - preserves JSON types
+    - ``.toml`` - TOML format (tomllib Python 3.11+ or tomli package) - preserves TOML types
+    - ``.yaml``, ``.yml`` - YAML format (pyyaml package required) - preserves YAML types
 
 str (ENV:PREFIX)
     Environment variables with the given prefix. The prefix is stripped and
-    the remaining key is lowercased.
+    the remaining key is lowercased. Values are strings.
     Example: ``MYAPP_SERVER_HOST=x`` with ``'ENV:MYAPP'`` → ``{'server_host': 'x'}``
 
 pathlib.Path
     Same as str file path, but as Path object.
-
-Auto Type Conversion
---------------------
-
-String values from .ini files and environment variables are automatically
-converted to Python types:
-
-- ``"123"`` → ``int(123)``
-- ``"12.5"`` → ``float(12.5)``
-- ``"true"``, ``"false"``, ``"yes"``, ``"no"``, ``"on"``, ``"off"`` → ``bool``
-- ``"none"``, ``"null"`` → ``None``
-- Everything else → ``str``
 
 Example Usage
 -------------
@@ -83,6 +87,7 @@ Basic usage with multiple sources::
         'config/local.ini',                                 # local overrides
         'ENV:MYAPP',                                        # env var overrides
         skip_missing=True,                                  # ignore missing files
+        types={'server_port': int, 'server_debug': bool},   # explicit conversions
     )
 
     # Use with SmartOptions
@@ -91,8 +96,8 @@ Basic usage with multiple sources::
         defaults=defaults,
     )
 
-    opts.server_host    # from file or env
-    opts.server_port    # 9999 (from incoming)
+    opts.server_host    # from file or env (string)
+    opts.server_port    # 9999 (from incoming, int)
 
 Priority order (lowest to highest)::
 
@@ -114,14 +119,11 @@ MultiDefault
 Functions
 ---------
 
-auto_convert(value)
-    Convert string to appropriate Python type.
-
 flatten_dict(data, separator)
     Flatten nested dict using separator.
 
 load_ini(path)
-    Load configuration from .ini file.
+    Load configuration from .ini file (values are strings).
 
 load_json(path)
     Load configuration from .json file.
@@ -133,7 +135,7 @@ load_yaml(path)
     Load configuration from .yaml file.
 
 load_env(prefix)
-    Load configuration from environment variables with prefix.
+    Load configuration from environment variables with prefix (values are strings).
 
 load_file(path)
     Load configuration from file (auto-detect format from extension).
@@ -151,7 +153,6 @@ from typing import Any
 
 __all__ = [
     "MultiDefault",
-    "auto_convert",
     "flatten_dict",
     "load_ini",
     "load_json",
@@ -162,78 +163,10 @@ __all__ = [
 ]
 
 # -----------------------------------------------------------------------------
-# Type Conversion
+# Type Conversion Constants (used by MultiDefault._convert_value)
 # -----------------------------------------------------------------------------
 
 _BOOL_TRUE = frozenset({"true", "yes", "on", "1"})
-_BOOL_FALSE = frozenset({"false", "no", "off", "0"})
-_NONE_VALUES = frozenset({"none", "null", ""})
-
-
-def auto_convert(value: str) -> int | float | bool | None | str:
-    """
-    Convert string value to appropriate Python type.
-
-    Conversion rules (in order):
-    1. If value looks like int (digits only, optional leading minus) → int
-    2. If value looks like float (digits with single dot) → float
-    3. If value is true/yes/on/1 (case insensitive) → True
-    4. If value is false/no/off/0 (case insensitive) → False
-    5. If value is none/null/empty (case insensitive) → None
-    6. Otherwise → str (unchanged)
-
-    Args:
-        value: String value to convert.
-
-    Returns:
-        Converted value with appropriate Python type.
-
-    Examples:
-        >>> auto_convert("123")
-        123
-        >>> auto_convert("12.5")
-        12.5
-        >>> auto_convert("true")
-        True
-        >>> auto_convert("none")
-        None
-        >>> auto_convert("hello")
-        'hello'
-    """
-    if not isinstance(value, str):
-        return value
-
-    stripped = value.strip()
-    lower = stripped.lower()
-
-    # Check for None values
-    if lower in _NONE_VALUES:
-        return None
-
-    # Check for boolean
-    if lower in _BOOL_TRUE:
-        return True
-    if lower in _BOOL_FALSE:
-        return False
-
-    # Check for int
-    if stripped.lstrip("-").isdigit() and stripped.count("-") <= 1:
-        if stripped.startswith("-") or stripped[0].isdigit():
-            try:
-                return int(stripped)
-            except ValueError:
-                pass
-
-    # Check for float
-    if stripped.count(".") == 1:
-        parts = stripped.lstrip("-").split(".")
-        if all(p.isdigit() for p in parts if p):
-            try:
-                return float(stripped)
-            except ValueError:
-                pass
-
-    return value
 
 
 # -----------------------------------------------------------------------------
@@ -290,13 +223,14 @@ def load_ini(path: str | Path) -> dict[str, Any]:
     Load configuration from .ini file.
 
     Sections become top-level keys, options become nested keys.
-    Values are auto-converted to appropriate Python types.
+    All values are returned as strings (use ``types`` parameter in
+    ``MultiDefault`` for explicit type conversion).
 
     Args:
         path: Path to .ini file.
 
     Returns:
-        Nested dictionary with sections as top-level keys.
+        Nested dictionary with sections as top-level keys. All values are strings.
 
     Raises:
         FileNotFoundError: If file does not exist.
@@ -312,7 +246,7 @@ def load_ini(path: str | Path) -> dict[str, Any]:
             level = INFO
 
         >>> load_ini('config.ini')
-        {'server': {'host': 'localhost', 'port': 8000}, 'logging': {'level': 'INFO'}}
+        {'server': {'host': 'localhost', 'port': '8000'}, 'logging': {'level': 'INFO'}}
     """
     path = Path(path)
     if not path.exists():
@@ -325,7 +259,7 @@ def load_ini(path: str | Path) -> dict[str, Any]:
     for section in parser.sections():
         result[section] = {}
         for key, value in parser.items(section):
-            result[section][key] = auto_convert(value)
+            result[section][key] = value
 
     return result
 
@@ -378,7 +312,7 @@ def load_toml(path: str | Path) -> dict[str, Any]:
 
         with path.open("rb") as f:
             return tomllib.load(f)
-    else:
+    else:  # pragma: no cover
         try:
             import tomli
 
@@ -413,7 +347,7 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
 
     try:
         import yaml  # type: ignore[import-untyped]
-    except ImportError:
+    except ImportError:  # pragma: no cover
         raise ImportError(
             "YAML support requires 'pyyaml' package. "
             "Install with: pip install pyyaml"
@@ -472,13 +406,13 @@ def load_env(prefix: str) -> dict[str, Any]:
     Variables are matched by prefix, then:
     1. Prefix is stripped
     2. Key is lowercased
-    3. Value is auto-converted to appropriate type
+    3. Value is kept as string (use ``types`` in ``MultiDefault`` for conversion)
 
     Args:
         prefix: Environment variable prefix (without trailing underscore).
 
     Returns:
-        Flat dictionary with lowercase keys.
+        Flat dictionary with lowercase keys. All values are strings.
 
     Examples:
         Given environment::
@@ -489,7 +423,7 @@ def load_env(prefix: str) -> dict[str, Any]:
             OTHER_VAR=ignored
 
         >>> load_env('MYAPP')
-        {'server_host': 'localhost', 'server_port': 8000, 'debug': True}
+        {'server_host': 'localhost', 'server_port': '8000', 'debug': 'true'}
     """
     prefix_with_underscore = f"{prefix}_"
     prefix_len = len(prefix_with_underscore)
@@ -498,7 +432,7 @@ def load_env(prefix: str) -> dict[str, Any]:
     for key, value in os.environ.items():
         if key.startswith(prefix_with_underscore):
             clean_key = key[prefix_len:].lower()
-            result[clean_key] = auto_convert(value)
+            result[clean_key] = value
 
     return result
 
@@ -528,9 +462,16 @@ class MultiDefault(Mapping[str, Any]):
         skip_missing: If True, silently skip missing files instead of raising
             FileNotFoundError. Default: False.
 
+        types: Optional dict mapping keys to types for explicit conversion.
+            When specified, values for these keys are converted to the given
+            type instead of using auto_convert heuristics. This is useful for
+            values that should remain strings (e.g., "00123") or for explicit
+            type control.
+
     Attributes:
         sources: Tuple of original source specifications.
-        skip_missing: Whether to skip missing files.
+        skip_missing: Whether missing files are skipped.
+        types: Type conversion map.
 
     Examples:
         Basic usage::
@@ -557,11 +498,29 @@ class MultiDefault(Mapping[str, Any]):
                 'local.ini',  # may not exist
                 skip_missing=True,
             )
+
+        With explicit types::
+
+            defaults = MultiDefault(
+                'config.ini',
+                'ENV:MYAPP',
+                types={
+                    'server_port': int,
+                    'server_debug': bool,
+                    'version': str,  # Keep "1.0.0" as string
+                }
+            )
     """
 
-    def __init__(self, *sources: Any, skip_missing: bool = False):
+    def __init__(
+        self,
+        *sources: Any,
+        skip_missing: bool = False,
+        types: dict[str, type] | None = None,
+    ):
         self._sources = sources
         self._skip_missing = skip_missing
+        self._types = types or {}
         self._resolved: dict[str, Any] | None = None
 
     @property
@@ -574,12 +533,20 @@ class MultiDefault(Mapping[str, Any]):
         """Whether missing files are skipped."""
         return self._skip_missing
 
+    @property
+    def types(self) -> dict[str, type]:
+        """Type conversion map."""
+        return self._types
+
     def resolve(self) -> dict[str, Any]:
         """
         Resolve all sources and return merged flat dictionary.
 
         Sources are processed in order, with later sources overriding
         earlier ones. Nested dictionaries are flattened with "_" separator.
+
+        If ``types`` was provided, values for those keys are converted
+        to the specified type instead of using auto_convert heuristics.
 
         Returns:
             Flat dictionary with all configuration merged.
@@ -606,8 +573,38 @@ class MultiDefault(Mapping[str, Any]):
             flat_data = flatten_dict(data) if data else {}
             result.update(flat_data)
 
+        # Apply explicit type conversions
+        if self._types:
+            for key, type_cls in self._types.items():
+                if key in result:
+                    result[key] = self._convert_value(result[key], type_cls)
+
         self._resolved = result
         return result
+
+    def _convert_value(self, value: Any, type_cls: type) -> Any:
+        """
+        Convert a value to the specified type.
+
+        Args:
+            value: Value to convert.
+            type_cls: Target type (int, float, bool, str, etc.).
+
+        Returns:
+            Converted value, or original value if conversion fails.
+        """
+        # Already correct type or None
+        if value is None or isinstance(value, type_cls):
+            return value
+
+        try:
+            # Special handling for bool from string
+            if type_cls is bool and isinstance(value, str):
+                return value.lower() in _BOOL_TRUE
+            return type_cls(value)
+        except (ValueError, TypeError):
+            # Keep original value if conversion fails
+            return value
 
     def _load_source(self, source: Any) -> dict[str, Any]:
         """
@@ -675,19 +672,7 @@ class MultiDefault(Mapping[str, Any]):
     def __repr__(self) -> str:
         """Return string representation."""
         sources_repr = ", ".join(repr(s) for s in self._sources)
-        return f"MultiDefault({sources_repr}, skip_missing={self._skip_missing})"
-
-
-# -----------------------------------------------------------------------------
-# Module Entry Point
-# -----------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    # Example usage
-    defaults = MultiDefault(
-        {"server_host": "0.0.0.0", "server_port": 8000},
-        "ENV:GENRO_TEST",
-    )
-    print("Resolved config:")
-    for key, value in defaults.items():
-        print(f"  {key}: {value!r}")
+        parts = [sources_repr, f"skip_missing={self._skip_missing}"]
+        if self._types:
+            parts.append(f"types={self._types!r}")
+        return f"MultiDefault({', '.join(parts)})"

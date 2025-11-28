@@ -102,6 +102,8 @@ class SmartOptions(SimpleNamespace):
         defaults: Mapping with baseline options.
         ignore_none: Skip incoming entries where the value is ``None``.
         ignore_empty: Skip empty strings/collections from incoming entries.
+        filter_fn: Optional callable receiving ``(key, value)`` and returning
+            True if the pair should be kept.
     """
 
     def __init__(
@@ -120,6 +122,7 @@ class SmartOptions(SimpleNamespace):
             ignore_none=ignore_none,
             ignore_empty=ignore_empty,
         )
+
         object.__setattr__(self, "_data", dict(merged))
         super().__init__(**merged)
 

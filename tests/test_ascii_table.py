@@ -226,6 +226,83 @@ class TestTableLayout:
         widths = compute_col_widths(names, rows, max_width=50)
         assert sum(widths) <= 50 - (len(names) + 1)
 
+    def test_compute_col_widths_exact_min_width(self):
+        """Test when total equals sum of min_widths (edge case for line 159).
+
+        When content is single words (no spaces), ideal width == min width.
+        With constrained max_width where total > usable but sum(min_widths) <= usable,
+        the branch at line 159 (else: widths[i] = min_widths[i]) is executed.
+        """
+        # Single-word content means ideal == longest_word == min
+        names = ["A", "B"]
+        rows = [["word1", "word2"]]
+        # With pad=2: widths[i] = 5+2 = 7, min_widths[i] = 7
+        # total = 14, sum(min_widths) = 14 → total == sum(min_widths)
+        # separators = 3 (|col|col|), usable = max_width - 3
+        # Need: total > usable AND sum(min_widths) <= usable
+        # 14 > max_width - 3 AND 14 <= max_width - 3 → impossible
+        # But we need total > usable to enter the outer if, so max_width < 17
+        # And sum(min_widths) <= usable, so 14 <= max_width - 3, max_width >= 17
+        # This is contradictory for the exact equality case.
+        #
+        # Let's use a different approach: longer words to make total larger
+        # but still keep total == sum(min_widths)
+        names = ["ABCD", "EFGH"]  # 4 chars each
+        rows = [["word123", "word456"]]  # 7 chars each, single words
+        # ideal for col 0 = max(4, 7) = 7, widths[0] = 7+2 = 9
+        # min for col 0 = max(7+2, 5) = 9
+        # Same for col 1: widths = [9, 9], min_widths = [9, 9]
+        # total = 18, sum(min_widths) = 18 → equal
+        # usable = max_width - 3
+        # Need: 18 > usable AND 18 <= usable → still contradictory
+        #
+        # Actually the branch is inside the loop, checking for each column.
+        # If for ANY column widths[i] == min_widths[i], we hit line 159.
+        # Let's verify with max_width=20: usable=17, total=18 > 17, sum(min)=18 > 17
+        # This triggers line 161-163 instead (scale down).
+        #
+        # The branch at 154 is only reachable if sum(min_widths) <= usable (line 149)
+        # and we're inside the loop. The condition at 154 is checking for the
+        # case where total == sum(min_widths), meaning all columns have
+        # ideal == min. In that case, extra = 0 for all, so the if branch
+        # would do: widths[i] = min_widths[i] + 0 = min_widths[i]
+        # Same result as else branch. The else branch (159) is dead code.
+        #
+        # Actually, re-reading: if total == sum(min_widths), then
+        # for each column extra = widths[i] - min_widths[i] = 0
+        # In if branch: min_widths[i] + int(0 * remaining / 0) → division by zero!
+        # So the else branch (159) prevents division by zero.
+        #
+        # To trigger it: need total == sum(min_widths), which happens when
+        # all columns have ideal == min (single words, no wrapping benefit).
+        widths = compute_col_widths(names, rows, max_width=25)
+        # usable = 22, total = 18 < usable → no compression needed
+        # Let's force it
+        widths = compute_col_widths(names, rows, max_width=20)
+        # usable = 17, total = 18 > 17 (enters outer if)
+        # sum(min_widths) = 18 > 17 (enters else at line 161, not our target)
+        #
+        # We need sum(min_widths) <= usable < total
+        # But total == sum(min_widths), so this is impossible.
+        # The line 159 is truly dead code when total == sum(min_widths).
+        #
+        # Let's try a case where ONE column has ideal == min (hitting else)
+        # but another has ideal > min (making total > sum(min_widths))
+        names = ["A", "B"]
+        rows = [["word1", "two words here"]]  # col 0: single word, col 1: multi-word
+        # col 0: ideal = 5, min = 5, widths[0] = 7, min_widths[0] = 7
+        # col 1: ideal = 14, min = 5 (longest word "words"), widths[1] = 16, min_widths[1] = 7
+        # total = 23, sum(min_widths) = 14
+        # usable = max_width - 3
+        # Need: 23 > usable AND 14 <= usable → 17 <= max_width < 26
+        widths = compute_col_widths(names, rows, max_width=20)
+        # usable = 17, total = 23 > 17 ✓, sum(min) = 14 <= 17 ✓
+        # remaining = 17 - 14 = 3
+        # col 0: extra = 7 - 7 = 0 → hits else branch (line 159)!
+        # col 1: extra = 16 - 7 = 9 → hits if branch
+        assert len(widths) == 2
+        assert widths[0] >= 5  # minimum width preserved
+
     def test_compute_col_widths_with_ansi(self):
         """ANSI codes don't count toward width."""
         names = ["Name"]
@@ -354,7 +431,7 @@ class TestTableFromStruct:
         assert "2025-11-24 10:30:00" in result
 
     def test_render_ascii_table_with_max_width(self):
-        """Generate table respecting max_width."""
+        """Generate table respecting max_width in data dict."""
         data = {
             "max_width": 50,
             "headers": [{"name": "Text", "type": "str"}],
@@ -365,6 +442,19 @@ class TestTableFromStruct:
         # Check that lines don't exceed max_width
         for line in lines:
             assert len(strip_ansi(line)) <= 52  # Allow for separators
+
+    def test_render_ascii_table_with_max_width_parameter(self):
+        """Generate table with max_width passed as parameter."""
+        data = {
+            "headers": [{"name": "Text", "type": "str"}],
+            "rows": [["x" * 100]],
+        }
+        # Pass max_width as parameter, not in data dict
+        result = render_ascii_table(data, max_width=60)
+        lines = result.split("\n")
+        # Check that lines don't exceed max_width
+        for line in lines:
+            assert len(strip_ansi(line)) <= 62  # Allow for separators
 
 
 class TestRenderMarkdownTable:

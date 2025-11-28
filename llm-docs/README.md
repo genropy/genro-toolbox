@@ -13,10 +13,12 @@ pip install genro-toolbox
 ```python
 from genro_toolbox import (
     SmartOptions,           # Merge kwargs with defaults
+    MultiDefault,           # Load config from multiple sources
     extract_kwargs,         # Decorator: group kwargs by prefix
     safe_is_instance,       # isinstance() without import
     render_ascii_table,     # ASCII table rendering
     render_markdown_table,  # Markdown table rendering
+    dictExtract,            # Extract dict subset by prefix
 )
 ```
 
@@ -35,6 +37,26 @@ opts.timeout   # 30 (runtime wins)
 opts.retries   # 3 (from defaults)
 opts.as_dict() # {"timeout": 30, "retries": 3}
 ```
+
+### MultiDefault
+
+```python
+from genro_toolbox import MultiDefault, SmartOptions
+
+# Load from multiple sources (later overrides earlier)
+defaults = MultiDefault(
+    {'host': 'localhost', 'port': 8000},  # base
+    'config.ini',                          # file
+    'ENV:MYAPP',                           # env vars
+    skip_missing=True,
+    types={'port': int, 'debug': bool},    # explicit conversion
+)
+
+opts = SmartOptions(incoming={'port': 9000}, defaults=defaults)
+opts.port  # 9000 (int)
+```
+
+**Supported sources**: dict, `.ini`, `.json`, `.toml`, `.yaml`, `ENV:PREFIX`
 
 ### extract_kwargs
 

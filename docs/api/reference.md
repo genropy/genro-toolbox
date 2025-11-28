@@ -93,6 +93,67 @@ class SmartOptions(SimpleNamespace):
 
 See [SmartOptions Guide](../user-guide/smart-options.md) for detailed examples.
 
+## MultiDefault
+
+```{eval-rst}
+.. autoclass:: genro_toolbox.MultiDefault
+   :members:
+   :special-members: __init__
+```
+
+### Class Signature
+
+```python
+class MultiDefault(Mapping[str, Any]):
+    def __init__(
+        self,
+        *sources: Any,
+        skip_missing: bool = False,
+        types: dict[str, type] | None = None,
+    )
+```
+
+### Parameters
+
+**sources** : `Any`
+: Configuration sources. Can be:
+  - `dict`: Used directly (flattened if nested)
+  - `str` (file path): Load from file (`.ini`, `.json`, `.toml`, `.yaml`)
+  - `str` `"ENV:PREFIX"`: Load from environment variables with prefix
+  - `pathlib.Path`: Load from file
+
+**skip_missing** : `bool`
+: When True, silently skip missing files instead of raising `FileNotFoundError`. Default: False.
+
+**types** : `Optional[dict[str, type]]`
+: Dict mapping keys to types for explicit conversion. Values from `.ini` files and
+  environment variables are strings by default. Use this to convert them:
+  - `int`: Convert to integer
+  - `float`: Convert to float
+  - `bool`: Convert to boolean (`"true"`, `"yes"`, `"on"`, `"1"` → `True`)
+  - `str`: Keep as string (useful to prevent auto-conversion in JSON/TOML)
+
+### Properties
+
+**sources** : `tuple[Any, ...]`
+: Original source specifications.
+
+**skip_missing** : `bool`
+: Whether missing files are skipped.
+
+**types** : `dict[str, type]`
+: Type conversion map.
+
+### Methods
+
+**resolve() → dict[str, Any]**
+: Resolve all sources and return merged flat dictionary. Sources are processed
+  in order, with later sources overriding earlier ones.
+
+### Examples
+
+See [MultiDefault Guide](../user-guide/multi-default.md) for detailed examples.
+
 ## safe_is_instance
 
 ```{eval-rst}
