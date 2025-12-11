@@ -19,13 +19,15 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import pytest
 
 from genro_toolbox.multi_default import (
     MultiDefault,
+    extract_signature,
     flatten_dict,
+    load_argv,
     load_env,
     load_file,
     load_ini,
@@ -665,3 +667,268 @@ class TestMultiDefaultWithSmartOptions:
 
         # incoming None is ignored, so env value ("") is used
         assert opts.empty == ""
+
+
+# =============================================================================
+# Tests: extract_signature
+# =============================================================================
+
+
+class TestExtractSignature:
+    """Tests for extract_signature function."""
+
+    def test_simple_function(self) -> None:
+        """Extract from simple function with defaults."""
+
+        def cmd(foo: str = "default", bar: int = 42) -> None:
+            pass
+
+        defaults, types, helps = extract_signature(cmd)
+        assert defaults == {"foo": "default", "bar": 42}
+        assert types == {"foo": str, "bar": int}
+        assert helps == {}
+
+    def test_annotated_with_help(self) -> None:
+        """Extract help strings from Annotated."""
+
+        def cmd(
+            foo: Annotated[str, "Foo help"] = "default",
+            bar: Annotated[int, "Bar help"] = 42,
+        ) -> None:
+            pass
+
+        defaults, types, helps = extract_signature(cmd)
+        assert defaults == {"foo": "default", "bar": 42}
+        assert types == {"foo": str, "bar": int}
+        assert helps == {"foo": "Foo help", "bar": "Bar help"}
+
+    def test_optional_type(self) -> None:
+        """Extract inner type from Optional."""
+
+        def cmd(
+            config: Path | None = None,
+            host: str = "localhost",
+        ) -> None:
+            pass
+
+        defaults, types, helps = extract_signature(cmd)
+        assert defaults == {"config": None, "host": "localhost"}
+        assert types == {"config": Path, "host": str}
+
+    def test_bool_type(self) -> None:
+        """Extract bool type."""
+
+        def cmd(debug: bool = False, verbose: bool = True) -> None:
+            pass
+
+        defaults, types, helps = extract_signature(cmd)
+        assert defaults == {"debug": False, "verbose": True}
+        assert types == {"debug": bool, "verbose": bool}
+
+    def test_skips_args_kwargs(self) -> None:
+        """Skip *args and **kwargs."""
+
+        def cmd(foo: str = "x", *args: str, **kwargs: int) -> None:
+            pass
+
+        defaults, types, helps = extract_signature(cmd)
+        assert defaults == {"foo": "x"}
+        assert types == {"foo": str}
+
+    def test_no_default_value(self) -> None:
+        """Parameters without defaults are not included."""
+
+        def cmd(required: str, optional: str = "default") -> None:
+            pass
+
+        defaults, types, helps = extract_signature(cmd)
+        # Only parameters with defaults are extracted
+        assert defaults == {"optional": "default"}
+        assert types == {"optional": str}  # required has no default, so no type
+
+
+# =============================================================================
+# Tests: load_argv
+# =============================================================================
+
+
+class TestLoadArgv:
+    """Tests for load_argv function."""
+
+    def test_basic_args(self) -> None:
+        """Parse basic arguments."""
+        defaults = {"foo": "default", "bar": 42}
+        types = {"foo": str, "bar": int}
+        helps = {}
+
+        result = load_argv(defaults, types, helps, ["--foo", "custom", "--bar", "100"])
+        assert result == {"foo": "custom", "bar": 100}
+
+    def test_partial_args(self) -> None:
+        """Only provided args are in result."""
+        defaults = {"foo": "default", "bar": 42}
+        types = {"foo": str, "bar": int}
+        helps = {}
+
+        result = load_argv(defaults, types, helps, ["--bar", "100"])
+        assert result == {"bar": 100}
+        assert "foo" not in result
+
+    def test_bool_store_true(self) -> None:
+        """Bool with default=False uses store_true."""
+        defaults = {"debug": False}
+        types = {"debug": bool}
+        helps = {}
+
+        result = load_argv(defaults, types, helps, ["--debug"])
+        assert result == {"debug": True}
+
+    def test_bool_store_false(self) -> None:
+        """Bool with default=True uses --no-xxx."""
+        defaults = {"verbose": True}
+        types = {"verbose": bool}
+        helps = {}
+
+        result = load_argv(defaults, types, helps, ["--no-verbose"])
+        assert result == {"verbose": False}
+
+    def test_empty_argv(self) -> None:
+        """Empty argv returns empty dict."""
+        defaults = {"foo": "default"}
+        types = {"foo": str}
+        helps = {}
+
+        result = load_argv(defaults, types, helps, [])
+        assert result == {}
+
+    def test_underscore_to_dash(self) -> None:
+        """Underscores in param names become dashes in CLI."""
+        defaults = {"server_port": 8000}
+        types = {"server_port": int}
+        helps = {}
+
+        result = load_argv(defaults, types, helps, ["--server-port", "9000"])
+        assert result == {"server_port": 9000}
+
+
+# =============================================================================
+# Tests: MultiDefault with callable and ARGV
+# =============================================================================
+
+
+class TestMultiDefaultCallable:
+    """Tests for MultiDefault with callable source."""
+
+    def test_callable_provides_defaults(self) -> None:
+        """Callable source provides defaults."""
+
+        def cmd(foo: str = "default", bar: int = 42) -> None:
+            pass
+
+        defaults = MultiDefault(cmd)
+        assert defaults["foo"] == "default"
+        assert defaults["bar"] == 42
+
+    def test_callable_provides_types(self) -> None:
+        """Callable source provides types for conversion."""
+
+        def cmd(port: int = 8000) -> None:
+            pass
+
+        defaults = MultiDefault(cmd, {"port": "9000"})  # string from dict
+        assert defaults["port"] == 9000  # converted to int
+        assert isinstance(defaults["port"], int)
+
+    def test_callable_with_file_override(self, tmp_path: Path) -> None:
+        """File overrides callable defaults."""
+
+        def cmd(foo: str = "default", bar: int = 42) -> None:
+            pass
+
+        toml_file = tmp_path / "config.toml"
+        toml_file.write_text('foo = "from_file"\n')
+
+        defaults = MultiDefault(cmd, str(toml_file))
+        assert defaults["foo"] == "from_file"
+        assert defaults["bar"] == 42
+
+    def test_callable_with_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Env overrides callable defaults."""
+
+        def cmd(foo: str = "default", bar: int = 42) -> None:
+            pass
+
+        monkeypatch.setenv("MYAPP_FOO", "from_env")
+
+        defaults = MultiDefault(cmd, "ENV:MYAPP")
+        assert defaults["foo"] == "from_env"
+        assert defaults["bar"] == 42
+
+    def test_only_one_callable_allowed(self) -> None:
+        """Only one callable source is allowed."""
+
+        def cmd1(foo: str = "a") -> None:
+            pass
+
+        def cmd2(bar: str = "b") -> None:
+            pass
+
+        with pytest.raises(ValueError, match="Only one callable"):
+            MultiDefault(cmd1, cmd2)
+
+    def test_explicit_types_override_callable_types(self) -> None:
+        """Explicit types parameter overrides callable types."""
+
+        def cmd(value: int = 42) -> None:
+            pass
+
+        # Explicit types says value is str, not int
+        defaults = MultiDefault(cmd, types={"value": str})
+        assert defaults["value"] == "42"  # converted to str
+
+
+class TestMultiDefaultArgv:
+    """Tests for MultiDefault with ARGV: source."""
+
+    def test_argv_parses_args(self) -> None:
+        """ARGV: parses command line arguments via load_argv."""
+
+        def cmd(
+            foo: Annotated[str, "Foo value"] = "default",
+            bar: Annotated[int, "Bar value"] = 42,
+        ) -> None:
+            pass
+
+        # Test load_argv directly with explicit argv
+        defaults_dict, types, helps = extract_signature(cmd)
+        result = load_argv(
+            defaults_dict, types, helps, ["--foo", "custom", "--bar", "100"]
+        )
+        assert result == {"foo": "custom", "bar": 100}
+
+    def test_argv_requires_callable(self) -> None:
+        """ARGV: requires a callable source."""
+        with pytest.raises(ValueError, match="requires a callable"):
+            MultiDefault({"foo": "bar"}, "ARGV:")
+
+    def test_full_chain_with_argv(self, tmp_path: Path) -> None:
+        """Full chain: callable < file < env < argv."""
+
+        def cmd(
+            foo: str = "from_callable",
+            bar: int = 1,
+            baz: str = "unchanged",
+        ) -> None:
+            pass
+
+        toml_file = tmp_path / "config.toml"
+        toml_file.write_text('foo = "from_file"\nbar = 2\n')
+
+        # Create MultiDefault and test _load_source for ARGV
+        defaults = MultiDefault(cmd, str(toml_file))
+
+        # callable provides defaults
+        assert defaults["baz"] == "unchanged"
+        # file overrides
+        assert defaults["foo"] == "from_file"
+        assert defaults["bar"] == 2

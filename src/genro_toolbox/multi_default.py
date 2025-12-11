@@ -143,13 +143,15 @@ load_file(path)
 
 from __future__ import annotations
 
+import argparse
+import inspect
 import json
 import os
 import sys
-from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
+from collections.abc import Callable, ItemsView, Iterator, KeysView, Mapping, ValuesView
 from configparser import ConfigParser
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Union, get_args, get_origin
 
 __all__ = [
     "MultiDefault",
@@ -160,6 +162,8 @@ __all__ = [
     "load_yaml",
     "load_env",
     "load_file",
+    "load_argv",
+    "extract_signature",
 ]
 
 # -----------------------------------------------------------------------------
@@ -438,6 +442,221 @@ def load_env(prefix: str) -> dict[str, Any]:
 
 
 # -----------------------------------------------------------------------------
+# Signature Extraction and ARGV Loading
+# -----------------------------------------------------------------------------
+
+
+def _unwrap_annotated(annotation: Any) -> tuple[Any, str | None]:
+    """
+    Extract the actual type and help string from an Annotated type.
+
+    Args:
+        annotation: Type annotation, possibly Annotated[T, "help"].
+
+    Returns:
+        Tuple of (actual_type, help_string or None).
+
+    Examples:
+        >>> _unwrap_annotated(Annotated[int, "Port number"])
+        (int, "Port number")
+        >>> _unwrap_annotated(str)
+        (str, None)
+    """
+    if get_origin(annotation) is Annotated:
+        args = get_args(annotation)
+        actual_type = args[0]
+        help_str = args[1] if len(args) > 1 and isinstance(args[1], str) else None
+        return actual_type, help_str
+    return annotation, None
+
+
+def _is_optional(type_hint: Any) -> tuple[bool, Any]:
+    """
+    Check if a type hint is Optional (Union with None).
+
+    Args:
+        type_hint: Type annotation to check.
+
+    Returns:
+        Tuple of (is_optional, inner_type).
+
+    Examples:
+        >>> _is_optional(Union[str, None])
+        (True, str)
+        >>> _is_optional(str | None)
+        (True, str)
+        >>> _is_optional(str)
+        (False, str)
+    """
+    import types
+
+    origin = get_origin(type_hint)
+    # Handle both typing.Union and types.UnionType (Python 3.10+ `X | Y` syntax)
+    if origin is Union or isinstance(type_hint, types.UnionType):
+        args = get_args(type_hint)
+        non_none = [a for a in args if a is not type(None)]
+        if len(non_none) == 1 and type(None) in args:
+            return True, non_none[0]
+    return False, type_hint
+
+
+def extract_signature(
+    func: Callable[..., Any],
+) -> tuple[dict[str, Any], dict[str, type], dict[str, str]]:
+    """
+    Extract defaults, types, and help strings from a callable's signature.
+
+    Analyzes function parameters to extract:
+    - Default values for each parameter
+    - Type annotations (unwrapping Annotated if present)
+    - Help strings from Annotated metadata
+
+    Args:
+        func: Callable with type annotations and default values.
+
+    Returns:
+        Tuple of (defaults_dict, types_dict, help_dict).
+
+    Examples:
+        >>> def cmd(host: Annotated[str, "Server host"] = "localhost",
+        ...         port: Annotated[int, "Port"] = 8000):
+        ...     pass
+        >>> defaults, types, helps = extract_signature(cmd)
+        >>> defaults
+        {'host': 'localhost', 'port': 8000}
+        >>> types
+        {'host': str, 'port': int}
+        >>> helps
+        {'host': 'Server host', 'port': 'Port'}
+    """
+    from typing import get_type_hints
+
+    sig = inspect.signature(func)
+    defaults: dict[str, Any] = {}
+    types: dict[str, type] = {}
+    helps: dict[str, str] = {}
+
+    # Get resolved type hints (handles "from __future__ import annotations")
+    try:
+        type_hints = get_type_hints(func, include_extras=True)
+    except Exception:
+        type_hints = {}
+
+    for name, param in sig.parameters.items():
+        # Skip *args and **kwargs
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            continue
+
+        # Extract default value
+        if param.default is not param.empty:
+            defaults[name] = param.default
+
+            # Extract type and help from resolved type hint
+            if name in type_hints:
+                annotation = type_hints[name]
+                actual_type, help_str = _unwrap_annotated(annotation)
+
+                # Handle Optional types
+                is_opt, inner_type = _is_optional(actual_type)
+                if is_opt:
+                    actual_type = inner_type
+
+                # Store type if it's a concrete type
+                if isinstance(actual_type, type):
+                    types[name] = actual_type
+
+                # Store help string if present
+                if help_str:
+                    helps[name] = help_str
+
+    return defaults, types, helps
+
+
+def load_argv(
+    defaults: dict[str, Any],
+    types: dict[str, type],
+    helps: dict[str, str],
+    argv: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Parse command-line arguments based on extracted signature info.
+
+    Creates an argparse.ArgumentParser based on the provided defaults,
+    types, and help strings, then parses the given argv.
+
+    Args:
+        defaults: Default values for each argument.
+        types: Type for each argument.
+        helps: Help string for each argument.
+        argv: Command-line arguments to parse (default: empty list).
+
+    Returns:
+        Dictionary with parsed argument values (only non-None values).
+
+    Examples:
+        >>> defaults = {'host': 'localhost', 'port': 8000}
+        >>> types = {'host': str, 'port': int}
+        >>> helps = {'host': 'Server host', 'port': 'Port number'}
+        >>> load_argv(defaults, types, helps, ['--port', '9000'])
+        {'port': 9000}
+    """
+    parser = argparse.ArgumentParser()
+
+    # Track which names use --no-xxx form
+    bool_inverted: set[str] = set()
+
+    for name in defaults:
+        arg_name = f"--{name.replace('_', '-')}"
+        kwargs: dict[str, Any] = {}
+
+        # Help string
+        if name in helps:
+            kwargs["help"] = helps[name]
+
+        # Default value
+        default = defaults.get(name)
+
+        # Type handling
+        type_cls = types.get(name)
+        if type_cls is bool:
+            # Boolean: use store_true or store_false based on default
+            if default is True:
+                kwargs["action"] = "store_false"
+                kwargs["dest"] = name
+                arg_name = f"--no-{name.replace('_', '-')}"
+                bool_inverted.add(name)
+            else:
+                kwargs["action"] = "store_true"
+        else:
+            kwargs["default"] = None  # We use None to detect "not provided"
+            if type_cls is not None:
+                kwargs["type"] = type_cls
+
+        parser.add_argument(arg_name, **kwargs)
+
+    if argv is None:
+        argv = []
+
+    args = parser.parse_args(argv)
+
+    # Return only values that were actually provided
+    result: dict[str, Any] = {}
+    for name in defaults:
+        type_cls = types.get(name)
+        value = getattr(args, name, None)
+
+        if type_cls is bool:
+            default = defaults.get(name)
+            # For bools, check if the value differs from default
+            if value != default:
+                result[name] = value
+        elif value is not None:
+            result[name] = value
+
+    return result
+
+
+# -----------------------------------------------------------------------------
 # MultiDefault Class
 # -----------------------------------------------------------------------------
 
@@ -454,9 +673,11 @@ class MultiDefault(Mapping[str, Any]):
 
     Args:
         *sources: Configuration sources in priority order (lowest first).
+            - callable: Extract defaults and types from function signature
             - dict: Used directly (flattened if nested)
             - str (file path): Load from file (.ini, .json, .toml, .yaml)
             - str "ENV:PREFIX": Load from environment variables with prefix
+            - str "ARGV:": Parse sys.argv using signature from callable source
             - pathlib.Path: Load from file
 
         skip_missing: If True, silently skip missing files instead of raising
@@ -466,7 +687,8 @@ class MultiDefault(Mapping[str, Any]):
             When specified, values for these keys are converted to the given
             type instead of using auto_convert heuristics. This is useful for
             values that should remain strings (e.g., "00123") or for explicit
-            type control.
+            type control. Note: if a callable source is provided, its types
+            are automatically merged with this parameter.
 
     Attributes:
         sources: Tuple of original source specifications.
@@ -510,6 +732,22 @@ class MultiDefault(Mapping[str, Any]):
                     'version': str,  # Keep "1.0.0" as string
                 }
             )
+
+        With callable and ARGV::
+
+            def cmd_serve(
+                host: Annotated[str, "Server host"] = "127.0.0.1",
+                port: Annotated[int, "Server port"] = 8000,
+                debug: Annotated[bool, "Enable debug"] = False,
+            ) -> int:
+                ...
+
+            defaults = MultiDefault(
+                cmd_serve,        # defaults + types from signature
+                'config.toml',    # file overrides
+                'ENV:MYAPP',      # env overrides
+                'ARGV:',          # CLI overrides (uses signature for argparse)
+            )
     """
 
     def __init__(
@@ -520,8 +758,35 @@ class MultiDefault(Mapping[str, Any]):
     ):
         self._sources = sources
         self._skip_missing = skip_missing
-        self._types = types or {}
+        self._types = dict(types) if types else {}
         self._resolved: dict[str, Any] | None = None
+
+        # Extract signature info from callable source (if any)
+        self._sig_defaults: dict[str, Any] = {}
+        self._sig_types: dict[str, type] = {}
+        self._sig_helps: dict[str, str] = {}
+        self._has_callable = False
+
+        for source in sources:
+            if callable(source) and not isinstance(source, type):
+                if self._has_callable:
+                    raise ValueError("Only one callable source is allowed")
+                self._has_callable = True
+                self._sig_defaults, self._sig_types, self._sig_helps = (
+                    extract_signature(source)
+                )
+                # Merge callable types with explicit types (explicit wins)
+                merged_types = dict(self._sig_types)
+                merged_types.update(self._types)
+                self._types = merged_types
+
+        # Validate ARGV: requires a callable
+        for source in sources:
+            if isinstance(source, str) and source.startswith("ARGV:"):
+                if not self._has_callable:
+                    raise ValueError(
+                        "ARGV: source requires a callable source for signature"
+                    )
 
     @property
     def sources(self) -> tuple[Any, ...]:
@@ -611,7 +876,7 @@ class MultiDefault(Mapping[str, Any]):
         Load configuration from a single source.
 
         Args:
-            source: Source specification (dict, str, Path).
+            source: Source specification (callable, dict, str, Path).
 
         Returns:
             Dictionary loaded from source.
@@ -620,6 +885,10 @@ class MultiDefault(Mapping[str, Any]):
             FileNotFoundError: If file source doesn't exist.
             ValueError: If source type is not recognized.
         """
+        # Callable: return extracted defaults
+        if callable(source) and not isinstance(source, type):
+            return self._sig_defaults
+
         # Dict: use directly
         if isinstance(source, dict):
             return source
@@ -628,17 +897,23 @@ class MultiDefault(Mapping[str, Any]):
         if isinstance(source, Path):
             return load_file(source)
 
-        # String: could be file path or ENV:PREFIX
+        # String: could be file path, ENV:PREFIX, or ARGV:
         if isinstance(source, str):
             if source.startswith("ENV:"):
                 prefix = source[4:]  # Remove "ENV:" prefix
                 return load_env(prefix)
+            elif source.startswith("ARGV:"):
+                return load_argv(
+                    self._sig_defaults,
+                    self._sig_types,
+                    self._sig_helps,
+                )
             else:
                 return load_file(source)
 
         raise ValueError(
             f"Unsupported source type: {type(source).__name__}. "
-            f"Expected dict, str, or Path."
+            f"Expected callable, dict, str, or Path."
         )
 
     # -------------------------------------------------------------------------
