@@ -502,32 +502,36 @@ def _is_optional(type_hint: Any) -> tuple[bool, Any]:
 
 def extract_signature(
     func: Callable[..., Any],
-) -> tuple[dict[str, Any], dict[str, type], dict[str, str]]:
+) -> tuple[dict[str, Any], dict[str, type], dict[str, str], list[str]]:
     """
-    Extract defaults, types, and help strings from a callable's signature.
+    Extract defaults, types, help strings, and positional args from a callable's signature.
 
     Analyzes function parameters to extract:
-    - Default values for each parameter
+    - Default values for each parameter (optional args)
     - Type annotations (unwrapping Annotated if present)
     - Help strings from Annotated metadata
+    - List of positional argument names (parameters without defaults)
 
     Args:
         func: Callable with type annotations and default values.
 
     Returns:
-        Tuple of (defaults_dict, types_dict, help_dict).
+        Tuple of (defaults_dict, types_dict, help_dict, positional_list).
 
     Examples:
-        >>> def cmd(host: Annotated[str, "Server host"] = "localhost",
+        >>> def cmd(input_file: str,
+        ...         host: Annotated[str, "Server host"] = "localhost",
         ...         port: Annotated[int, "Port"] = 8000):
         ...     pass
-        >>> defaults, types, helps = extract_signature(cmd)
+        >>> defaults, types, helps, positionals = extract_signature(cmd)
         >>> defaults
         {'host': 'localhost', 'port': 8000}
         >>> types
-        {'host': str, 'port': int}
+        {'input_file': str, 'host': str, 'port': int}
         >>> helps
         {'host': 'Server host', 'port': 'Port'}
+        >>> positionals
+        ['input_file']
     """
     from typing import get_type_hints
 
@@ -535,6 +539,7 @@ def extract_signature(
     defaults: dict[str, Any] = {}
     types: dict[str, type] = {}
     helps: dict[str, str] = {}
+    positionals: list[str] = []
 
     # Get resolved type hints (handles "from __future__ import annotations")
     try:
@@ -547,67 +552,88 @@ def extract_signature(
         if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
             continue
 
-        # Extract default value
+        # Extract type and help from resolved type hint
+        if name in type_hints:
+            annotation = type_hints[name]
+            actual_type, help_str = _unwrap_annotated(annotation)
+
+            # Handle Optional types
+            is_opt, inner_type = _is_optional(actual_type)
+            if is_opt:
+                actual_type = inner_type
+
+            # Store type if it's a concrete type
+            if isinstance(actual_type, type):
+                types[name] = actual_type
+
+            # Store help string if present
+            if help_str:
+                helps[name] = help_str
+
+        # Extract default value or mark as positional
         if param.default is not param.empty:
             defaults[name] = param.default
+        else:
+            positionals.append(name)
 
-            # Extract type and help from resolved type hint
-            if name in type_hints:
-                annotation = type_hints[name]
-                actual_type, help_str = _unwrap_annotated(annotation)
-
-                # Handle Optional types
-                is_opt, inner_type = _is_optional(actual_type)
-                if is_opt:
-                    actual_type = inner_type
-
-                # Store type if it's a concrete type
-                if isinstance(actual_type, type):
-                    types[name] = actual_type
-
-                # Store help string if present
-                if help_str:
-                    helps[name] = help_str
-
-    return defaults, types, helps
+    return defaults, types, helps, positionals
 
 
 def load_argv(
     defaults: dict[str, Any],
     types: dict[str, type],
     helps: dict[str, str],
+    positionals: list[str] | None = None,
     argv: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Parse command-line arguments based on extracted signature info.
 
     Creates an argparse.ArgumentParser based on the provided defaults,
-    types, and help strings, then parses the given argv.
+    types, help strings, and positional arguments, then parses the given argv.
 
     Args:
-        defaults: Default values for each argument.
-        types: Type for each argument.
+        defaults: Default values for optional arguments.
+        types: Type for each argument (both positional and optional).
         helps: Help string for each argument.
-        argv: Command-line arguments to parse (default: empty list).
+        positionals: List of positional argument names (in order).
+        argv: Command-line arguments to parse (default: sys.argv[1:]).
 
     Returns:
-        Dictionary with parsed argument values (only non-None values).
+        Dictionary with parsed argument values.
 
     Examples:
         >>> defaults = {'host': 'localhost', 'port': 8000}
-        >>> types = {'host': str, 'port': int}
-        >>> helps = {'host': 'Server host', 'port': 'Port number'}
-        >>> load_argv(defaults, types, helps, ['--port', '9000'])
-        {'port': 9000}
+        >>> types = {'input': str, 'host': str, 'port': int}
+        >>> helps = {'input': 'Input file', 'host': 'Server host'}
+        >>> positionals = ['input']
+        >>> load_argv(defaults, types, helps, positionals, ['file.txt', '--port', '9000'])
+        {'input': 'file.txt', 'port': 9000}
     """
     parser = argparse.ArgumentParser()
 
-    # Track which names use --no-xxx form
-    bool_inverted: set[str] = set()
+    if positionals is None:
+        positionals = []
 
+    # Add positional arguments first (in order)
+    for name in positionals:
+        kwargs: dict[str, Any] = {}
+
+        # Help string
+        if name in helps:
+            kwargs["help"] = helps[name]
+
+        # Type
+        type_cls = types.get(name)
+        if type_cls is not None:
+            kwargs["type"] = type_cls
+
+        parser.add_argument(name, **kwargs)
+
+    # Add optional arguments
     for name in defaults:
         arg_name = f"--{name.replace('_', '-')}"
-        kwargs: dict[str, Any] = {}
+        kwargs = {}
 
         # Help string
         if name in helps:
@@ -624,7 +650,6 @@ def load_argv(
                 kwargs["action"] = "store_false"
                 kwargs["dest"] = name
                 arg_name = f"--no-{name.replace('_', '-')}"
-                bool_inverted.add(name)
             else:
                 kwargs["action"] = "store_true"
         else:
@@ -635,12 +660,20 @@ def load_argv(
         parser.add_argument(arg_name, **kwargs)
 
     if argv is None:
-        argv = []
+        argv = sys.argv[1:]
 
     args = parser.parse_args(argv)
 
-    # Return only values that were actually provided
+    # Collect results
     result: dict[str, Any] = {}
+
+    # Positional arguments are always included
+    for name in positionals:
+        value = getattr(args, name, None)
+        if value is not None:
+            result[name] = value
+
+    # Optional arguments: only include if provided
     for name in defaults:
         type_cls = types.get(name)
         value = getattr(args, name, None)
@@ -765,6 +798,7 @@ class MultiDefault(Mapping[str, Any]):
         self._sig_defaults: dict[str, Any] = {}
         self._sig_types: dict[str, type] = {}
         self._sig_helps: dict[str, str] = {}
+        self._sig_positionals: list[str] = []
         self._has_callable = False
 
         for source in sources:
@@ -772,9 +806,12 @@ class MultiDefault(Mapping[str, Any]):
                 if self._has_callable:
                     raise ValueError("Only one callable source is allowed")
                 self._has_callable = True
-                self._sig_defaults, self._sig_types, self._sig_helps = (
-                    extract_signature(source)
-                )
+                (
+                    self._sig_defaults,
+                    self._sig_types,
+                    self._sig_helps,
+                    self._sig_positionals,
+                ) = extract_signature(source)
                 # Merge callable types with explicit types (explicit wins)
                 merged_types = dict(self._sig_types)
                 merged_types.update(self._types)
@@ -907,6 +944,7 @@ class MultiDefault(Mapping[str, Any]):
                     self._sig_defaults,
                     self._sig_types,
                     self._sig_helps,
+                    self._sig_positionals,
                 )
             else:
                 return load_file(source)

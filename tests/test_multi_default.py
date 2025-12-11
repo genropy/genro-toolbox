@@ -683,10 +683,11 @@ class TestExtractSignature:
         def cmd(foo: str = "default", bar: int = 42) -> None:
             pass
 
-        defaults, types, helps = extract_signature(cmd)
+        defaults, types, helps, positionals = extract_signature(cmd)
         assert defaults == {"foo": "default", "bar": 42}
         assert types == {"foo": str, "bar": int}
         assert helps == {}
+        assert positionals == []
 
     def test_annotated_with_help(self) -> None:
         """Extract help strings from Annotated."""
@@ -697,10 +698,11 @@ class TestExtractSignature:
         ) -> None:
             pass
 
-        defaults, types, helps = extract_signature(cmd)
+        defaults, types, helps, positionals = extract_signature(cmd)
         assert defaults == {"foo": "default", "bar": 42}
         assert types == {"foo": str, "bar": int}
         assert helps == {"foo": "Foo help", "bar": "Bar help"}
+        assert positionals == []
 
     def test_optional_type(self) -> None:
         """Extract inner type from Optional."""
@@ -711,9 +713,10 @@ class TestExtractSignature:
         ) -> None:
             pass
 
-        defaults, types, helps = extract_signature(cmd)
+        defaults, types, helps, positionals = extract_signature(cmd)
         assert defaults == {"config": None, "host": "localhost"}
         assert types == {"config": Path, "host": str}
+        assert positionals == []
 
     def test_bool_type(self) -> None:
         """Extract bool type."""
@@ -721,9 +724,10 @@ class TestExtractSignature:
         def cmd(debug: bool = False, verbose: bool = True) -> None:
             pass
 
-        defaults, types, helps = extract_signature(cmd)
+        defaults, types, helps, positionals = extract_signature(cmd)
         assert defaults == {"debug": False, "verbose": True}
         assert types == {"debug": bool, "verbose": bool}
+        assert positionals == []
 
     def test_skips_args_kwargs(self) -> None:
         """Skip *args and **kwargs."""
@@ -731,20 +735,50 @@ class TestExtractSignature:
         def cmd(foo: str = "x", *args: str, **kwargs: int) -> None:
             pass
 
-        defaults, types, helps = extract_signature(cmd)
+        defaults, types, helps, positionals = extract_signature(cmd)
         assert defaults == {"foo": "x"}
         assert types == {"foo": str}
+        assert positionals == []
 
     def test_no_default_value(self) -> None:
-        """Parameters without defaults are not included."""
+        """Parameters without defaults become positionals."""
 
         def cmd(required: str, optional: str = "default") -> None:
             pass
 
-        defaults, types, helps = extract_signature(cmd)
-        # Only parameters with defaults are extracted
+        defaults, types, helps, positionals = extract_signature(cmd)
+        # Parameters with defaults go to defaults dict
         assert defaults == {"optional": "default"}
-        assert types == {"optional": str}  # required has no default, so no type
+        # Both have types extracted
+        assert types == {"required": str, "optional": str}
+        # Parameters without defaults go to positionals list
+        assert positionals == ["required"]
+
+    def test_multiple_positionals(self) -> None:
+        """Multiple positional parameters are extracted in order."""
+
+        def cmd(input_file: str, output_file: str, verbose: bool = False) -> None:
+            pass
+
+        defaults, types, helps, positionals = extract_signature(cmd)
+        assert defaults == {"verbose": False}
+        assert types == {"input_file": str, "output_file": str, "verbose": bool}
+        assert positionals == ["input_file", "output_file"]
+
+    def test_positional_with_annotated(self) -> None:
+        """Positional parameters can have Annotated types."""
+
+        def cmd(
+            input_file: Annotated[str, "Input file path"],
+            output: str = "out.txt",
+        ) -> None:
+            pass
+
+        defaults, types, helps, positionals = extract_signature(cmd)
+        assert defaults == {"output": "out.txt"}
+        assert types == {"input_file": str, "output": str}
+        assert helps == {"input_file": "Input file path"}
+        assert positionals == ["input_file"]
 
 
 # =============================================================================
@@ -761,7 +795,9 @@ class TestLoadArgv:
         types = {"foo": str, "bar": int}
         helps = {}
 
-        result = load_argv(defaults, types, helps, ["--foo", "custom", "--bar", "100"])
+        result = load_argv(
+            defaults, types, helps, argv=["--foo", "custom", "--bar", "100"]
+        )
         assert result == {"foo": "custom", "bar": 100}
 
     def test_partial_args(self) -> None:
@@ -770,7 +806,7 @@ class TestLoadArgv:
         types = {"foo": str, "bar": int}
         helps = {}
 
-        result = load_argv(defaults, types, helps, ["--bar", "100"])
+        result = load_argv(defaults, types, helps, argv=["--bar", "100"])
         assert result == {"bar": 100}
         assert "foo" not in result
 
@@ -780,7 +816,7 @@ class TestLoadArgv:
         types = {"debug": bool}
         helps = {}
 
-        result = load_argv(defaults, types, helps, ["--debug"])
+        result = load_argv(defaults, types, helps, argv=["--debug"])
         assert result == {"debug": True}
 
     def test_bool_store_false(self) -> None:
@@ -789,16 +825,16 @@ class TestLoadArgv:
         types = {"verbose": bool}
         helps = {}
 
-        result = load_argv(defaults, types, helps, ["--no-verbose"])
+        result = load_argv(defaults, types, helps, argv=["--no-verbose"])
         assert result == {"verbose": False}
 
     def test_empty_argv(self) -> None:
-        """Empty argv returns empty dict."""
+        """Empty argv returns empty dict (without positionals)."""
         defaults = {"foo": "default"}
         types = {"foo": str}
         helps = {}
 
-        result = load_argv(defaults, types, helps, [])
+        result = load_argv(defaults, types, helps, argv=[])
         assert result == {}
 
     def test_underscore_to_dash(self) -> None:
@@ -807,8 +843,55 @@ class TestLoadArgv:
         types = {"server_port": int}
         helps = {}
 
-        result = load_argv(defaults, types, helps, ["--server-port", "9000"])
+        result = load_argv(defaults, types, helps, argv=["--server-port", "9000"])
         assert result == {"server_port": 9000}
+
+    def test_positional_args(self) -> None:
+        """Positional arguments are parsed."""
+        defaults = {"verbose": False}
+        types = {"input_file": str, "verbose": bool}
+        helps = {"input_file": "Input file path"}
+        positionals = ["input_file"]
+
+        result = load_argv(
+            defaults, types, helps, positionals, argv=["myfile.txt", "--verbose"]
+        )
+        assert result == {"input_file": "myfile.txt", "verbose": True}
+
+    def test_multiple_positionals(self) -> None:
+        """Multiple positional arguments are parsed in order."""
+        defaults = {}
+        types = {"input": str, "output": str}
+        helps = {}
+        positionals = ["input", "output"]
+
+        result = load_argv(
+            defaults, types, helps, positionals, argv=["in.txt", "out.txt"]
+        )
+        assert result == {"input": "in.txt", "output": "out.txt"}
+
+    def test_positional_with_optional(self) -> None:
+        """Positional and optional arguments are parsed together."""
+        defaults = {"port": 8000}
+        types = {"filename": str, "port": int}
+        helps = {}
+        positionals = ["filename"]
+
+        result = load_argv(
+            defaults, types, helps, positionals, argv=["data.json", "--port", "9000"]
+        )
+        assert result == {"filename": "data.json", "port": 9000}
+
+    def test_positional_with_int_type(self) -> None:
+        """Positional arguments respect type conversion."""
+        defaults = {}
+        types = {"count": int}
+        helps = {}
+        positionals = ["count"]
+
+        result = load_argv(defaults, types, helps, positionals, argv=["42"])
+        assert result == {"count": 42}
+        assert isinstance(result["count"], int)
 
 
 # =============================================================================
@@ -900,9 +983,13 @@ class TestMultiDefaultArgv:
             pass
 
         # Test load_argv directly with explicit argv
-        defaults_dict, types, helps = extract_signature(cmd)
+        defaults_dict, types, helps, positionals = extract_signature(cmd)
         result = load_argv(
-            defaults_dict, types, helps, ["--foo", "custom", "--bar", "100"]
+            defaults_dict,
+            types,
+            helps,
+            positionals,
+            argv=["--foo", "custom", "--bar", "100"],
         )
         assert result == {"foo": "custom", "bar": 100}
 
@@ -932,3 +1019,46 @@ class TestMultiDefaultArgv:
         # file overrides
         assert defaults["foo"] == "from_file"
         assert defaults["bar"] == 2
+
+    def test_callable_with_positionals(self) -> None:
+        """Callable with positional parameters extracts positionals."""
+
+        def cmd(
+            input_file: Annotated[str, "Input file"],
+            output: str = "out.txt",
+            verbose: bool = False,
+        ) -> None:
+            pass
+
+        defaults = MultiDefault(cmd)
+        # Positional params don't appear in defaults
+        assert "input_file" not in defaults
+        # But optional params do
+        assert defaults["output"] == "out.txt"
+        assert defaults["verbose"] is False
+
+    def test_argv_with_positionals(self) -> None:
+        """ARGV: parses positional and optional arguments."""
+
+        def cmd(
+            input_file: Annotated[str, "Input file"],
+            output: Annotated[str, "Output file"] = "out.txt",
+            verbose: Annotated[bool, "Verbose mode"] = False,
+        ) -> None:
+            pass
+
+        # Test load_argv with positionals
+        defaults_dict, types, helps, positionals = extract_signature(cmd)
+
+        result = load_argv(
+            defaults_dict,
+            types,
+            helps,
+            positionals,
+            argv=["myfile.txt", "--output", "result.txt", "--verbose"],
+        )
+        assert result == {
+            "input_file": "myfile.txt",
+            "output": "result.txt",
+            "verbose": True,
+        }
