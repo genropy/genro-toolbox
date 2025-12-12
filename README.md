@@ -30,8 +30,7 @@ pip install genro-toolbox
 
 ## Features
 
-- **SmartOptions** - Merge runtime kwargs with defaults
-- **MultiDefault** - Load config from multiple sources (files, env vars, dicts)
+- **SmartOptions** - Multi-source config with merge via `+` operator
 - **extract_kwargs** - Decorator to group kwargs by prefix
 - **safe_is_instance** - isinstance() without importing the class
 - **render_ascii_table** - ASCII table rendering with formatting
@@ -41,9 +40,39 @@ pip install genro-toolbox
 
 ### SmartOptions
 
+Load config from multiple sources and compose with `+`:
+
 ```python
 from genro_toolbox import SmartOptions
 
+def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
+    pass
+
+# Compose sources with priority (rightmost wins)
+config = (
+    SmartOptions(serve) +              # defaults from signature
+    SmartOptions('config.yaml') +      # file config
+    SmartOptions('ENV:MYAPP') +        # environment variables
+    SmartOptions(serve, sys.argv[1:])  # CLI args (highest priority)
+)
+
+config.host   # from file or env
+config.port   # from CLI if provided
+config.debug  # True if --debug passed
+```
+
+Load from files (YAML, JSON, TOML, INI):
+
+```python
+opts = SmartOptions('config.yaml')
+opts.server.host  # nested dicts become SmartOptions
+opts.middleware.cors  # string lists become feature flags (True)
+opts.apps.shop.module  # list of dicts indexed by first key
+```
+
+Basic merge with filtering:
+
+```python
 opts = SmartOptions(
     {"timeout": 30},                    # runtime values
     {"timeout": 10, "retries": 3},      # defaults
@@ -53,31 +82,6 @@ opts = SmartOptions(
 
 opts.timeout   # 30 (runtime wins)
 opts.retries   # 3 (from defaults)
-opts.as_dict() # {"timeout": 30, "retries": 3}
-```
-
-### MultiDefault
-
-```python
-from genro_toolbox import MultiDefault, SmartOptions
-
-# Load config from multiple sources (later sources override earlier)
-defaults = MultiDefault(
-    {'host': 'localhost', 'port': 8000},  # base defaults
-    'config.ini',                          # file config
-    'ENV:MYAPP',                           # environment variables
-    skip_missing=True,                     # ignore missing files
-    types={'port': int, 'debug': bool},    # explicit type conversion
-)
-
-# Use with SmartOptions
-opts = SmartOptions(
-    incoming={'port': 9000},  # runtime override
-    defaults=defaults,
-)
-
-opts.host  # 'localhost' (from dict or file)
-opts.port  # 9000 (from incoming, converted to int)
 ```
 
 ### extract_kwargs Decorator
@@ -141,6 +145,7 @@ print(render_ascii_table(data))
 > If you write a generic helper that could be useful elsewhere, put it in genro-toolbox.
 
 This library serves as the foundation for utilities shared across:
+
 - genro-asgi
 - genro-routes
 - genro-api
