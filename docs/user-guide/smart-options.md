@@ -1,17 +1,20 @@
 # SmartOptions Guide
 
-Complete guide to using `SmartOptions` for intelligent option merging.
+Complete guide to using `SmartOptions` for intelligent option merging and configuration loading.
 
 ## Overview
 
-`SmartOptions` is a convenient namespace class for managing configuration options with intelligent merging, filtering, and defaults.
+`SmartOptions` is a versatile namespace class for managing configuration with intelligent merging, multi-source loading, and hierarchical data support.
 
 **Key Features**:
-- Merge incoming options with defaults
-- Filter None values automatically
-- Filter empty collections (strings, lists, dicts)
-- Custom filter functions
-- Attribute-style access with dict conversion
+
+- Load config from files (YAML, JSON, TOML, INI)
+- Load config from environment variables
+- Extract defaults from function signatures
+- Merge multiple sources with `+` operator
+- Nested dicts become SmartOptions recursively
+- String lists become feature flags
+- List of dicts indexed by first key value
 
 ## Basic Usage
 
@@ -28,25 +31,164 @@ print(opts.timeout)  # 5 (from incoming)
 print(opts.retries)  # 3 (from defaults)
 ```
 
+## Loading from Files
+
+SmartOptions can load configuration directly from files:
+
+```python
+# From YAML
+opts = SmartOptions('config.yaml')
+
+# From JSON
+opts = SmartOptions('config.json')
+
+# From TOML
+opts = SmartOptions('config.toml')
+
+# From INI (keys become section_key format)
+opts = SmartOptions('config.ini')
+
+# From Path object
+from pathlib import Path
+opts = SmartOptions(Path('config.yaml'))
+```
+
+Missing files return an empty SmartOptions (no error).
+
+## Loading from Environment Variables
+
+Use the `ENV:PREFIX` syntax to load from environment variables:
+
+```python
+# Given: MYAPP_HOST=localhost MYAPP_PORT=9000
+opts = SmartOptions('ENV:MYAPP')
+
+print(opts.host)  # 'localhost'
+print(opts.port)  # '9000' (string from env)
+```
+
+The prefix is stripped and keys are lowercased.
+
+## Loading from Function Signatures
+
+Extract defaults and parse argv from a callable:
+
+```python
+def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
+    pass
+
+# Just extract defaults
+opts = SmartOptions(serve)
+print(opts.host)   # '127.0.0.1'
+print(opts.port)   # 8000
+print(opts.debug)  # False
+
+# Parse argv (positional and named args)
+import sys
+opts = SmartOptions(serve, sys.argv[1:])
+# ./app.py --port 9000 --debug
+# opts.port = 9000, opts.debug = True
+```
+
+Supports `Annotated` types for help strings:
+
+```python
+from typing import Annotated
+
+def serve(
+    app_dir: Annotated[str, 'Path to application'],
+    port: Annotated[int, 'Server port'] = 8000,
+):
+    pass
+
+opts = SmartOptions(serve, ['/path/to/app', '--port', '9000'])
+print(opts.app_dir)  # '/path/to/app'
+print(opts.port)     # 9000
+```
+
+## Composing with `+` Operator
+
+The most powerful feature: compose multiple sources with priority:
+
+```python
+def serve(host: str = '0.0.0.0', port: int = 8000, debug: bool = False):
+    pass
+
+# Priority: base < file < env < argv (rightmost wins)
+opts = (
+    SmartOptions(serve) +                    # defaults from signature
+    SmartOptions('config.yaml') +            # file overrides
+    SmartOptions('ENV:MYAPP') +              # env overrides
+    SmartOptions(serve, sys.argv[1:])        # argv overrides (highest)
+)
+```
+
+You can also add plain dicts:
+
+```python
+opts = SmartOptions({'a': 1}) + {'b': 2, 'a': 10}
+print(opts.a)  # 10 (dict overrides)
+print(opts.b)  # 2
+```
+
+## Nested Structures
+
+### Nested Dicts Become SmartOptions
+
+```python
+opts = SmartOptions({
+    'server': {
+        'host': 'localhost',
+        'port': 8080
+    }
+})
+
+print(opts.server.host)  # 'localhost'
+print(opts.server.port)  # 8080
+```
+
+### String Lists Become Feature Flags
+
+```python
+opts = SmartOptions({
+    'middleware': ['cors', 'compression', 'logging']
+})
+
+print(opts.middleware.cors)         # True
+print(opts.middleware.compression)  # True
+print('cors' in opts.middleware)    # True
+```
+
+### List of Dicts Indexed by First Key
+
+```python
+opts = SmartOptions({
+    'apps': [
+        {'name': 'shop', 'module': 'shop:ShopApp'},
+        {'name': 'office', 'module': 'office:OfficeApp'},
+    ]
+})
+
+print(opts.apps.shop.module)    # 'shop:ShopApp'
+print(opts.apps.office.module)  # 'office:OfficeApp'
+print('shop' in opts.apps)      # True
+```
+
 ## Filtering Options
 
 ### Ignore None Values
 
-When `ignore_none=True`, None values in incoming options are skipped, preserving defaults:
-
 ```python
 opts = SmartOptions(
-    incoming={'timeout': None, 'tags': []},
-    defaults={'timeout': 10, 'tags': ['default']},
+    incoming={'timeout': None},
+    defaults={'timeout': 10},
     ignore_none=True
 )
 
-print(opts.timeout)  # 10 (default kept, None ignored)
+print(opts.timeout)  # 10 (default kept)
 ```
 
 ### Ignore Empty Collections
-
-When `ignore_empty=True`, empty strings, lists, dicts, etc. are skipped:
 
 ```python
 opts = SmartOptions(
@@ -55,213 +197,111 @@ opts = SmartOptions(
     ignore_empty=True
 )
 
-print(opts.tags)  # ['prod'] (default kept, empty list ignored)
-print(opts.name)  # 'default' (default kept, empty string ignored)
+print(opts.tags)  # SmartOptions with 'prod': True
+print(opts.name)  # 'default'
 ```
-
-**Empty values** include:
-- Empty strings: `""`
-- Empty lists: `[]`
-- Empty tuples: `()`
-- Empty dicts: `{}`
-- Empty sets: `set()`
 
 ### Custom Filter Function
 
-Use `filter_fn` for custom filtering logic:
-
 ```python
 def only_positive(key, value):
-    """Keep only positive numbers."""
     return isinstance(value, (int, float)) and value > 0
 
 opts = SmartOptions(
-    incoming={'timeout': -5, 'retries': 3, 'port': 0},
-    defaults={'timeout': 30, 'retries': 1, 'port': 8080},
+    incoming={'timeout': -5, 'retries': 3},
+    defaults={'timeout': 30, 'retries': 1},
     filter_fn=only_positive
 )
 
-print(opts.timeout)  # 30 (negative filtered, default kept)
+print(opts.timeout)  # 30 (negative filtered)
 print(opts.retries)  # 3 (positive, accepted)
-print(opts.port)     # 8080 (zero filtered, default kept)
 ```
 
-## Converting to Dict
-
-Use `as_dict()` to get a dictionary copy:
+## Access Patterns
 
 ```python
-opts = SmartOptions({'timeout': 2}, {})
-config_dict = opts.as_dict()
+opts = SmartOptions({'a': 1, 'b': 2})
 
-print(config_dict)  # {'timeout': 2}
+# Attribute access
+print(opts.a)        # 1
+print(opts.missing)  # None (no error)
 
-# Modifications don't affect original
-config_dict['timeout'] = 99
-print(opts.timeout)  # 2 (unchanged)
+# Bracket access
+print(opts['a'])     # 1
+print(opts['x'])     # None
+
+# Containment
+print('a' in opts)   # True
+
+# Iteration
+for key in opts:
+    print(key)       # 'a', 'b'
+
+# Convert to dict
+d = opts.as_dict()   # {'a': 1, 'b': 2}
 ```
 
-## Dynamic Attributes
+## Real-World Example
 
-SmartOptions supports dynamic attribute modification:
-
-```python
-opts = SmartOptions({'timeout': 2}, {})
-
-# Update existing attribute
-opts.timeout = 7
-print(opts.as_dict())  # {'timeout': 7}
-
-# Add new attribute
-opts.new_flag = True
-print(opts.as_dict())  # {'timeout': 7, 'new_flag': True}
-
-# Delete attribute
-del opts.timeout
-print(opts.as_dict())  # {'new_flag': True}
-```
-
-## Use Cases
-
-### API Client Configuration
+Complete CLI application configuration:
 
 ```python
-class APIClient:
-    def __init__(self, **kwargs):
-        # Merge user config with defaults
-        self.config = SmartOptions(
-            incoming=kwargs,
-            defaults={
-                'timeout': 30,
-                'retries': 3,
-                'verify_ssl': True,
-                'user_agent': 'SmartClient/1.0'
-            },
-            ignore_none=True  # User can pass None to skip override
-        )
+from typing import Annotated
+from genro_toolbox import SmartOptions
+import sys
 
-    def request(self, url):
-        response = requests.get(
-            url,
-            timeout=self.config.timeout,
-            verify=self.config.verify_ssl,
-            headers={'User-Agent': self.config.user_agent}
-        )
-        return response
-
-# Use with defaults
-client = APIClient()
-
-# Override some settings
-client = APIClient(timeout=60, retries=5)
-
-# Explicitly keep default by passing None
-client = APIClient(timeout=None, retries=10)
-```
-
-### Plugin Configuration
-
-```python
-class Plugin:
-    def configure(self, user_config=None, **kwargs):
-        # Combine explicit config with kwargs
-        all_config = {**(user_config or {}), **kwargs}
-
-        self.options = SmartOptions(
-            incoming=all_config,
-            defaults=self.get_defaults(),
-            ignore_empty=True  # Empty values mean "use default"
-        )
-
-    def get_defaults(self):
-        return {
-            'enabled': True,
-            'log_level': 'INFO',
-            'cache_size': 100,
-            'workers': 4
-        }
-
-# Configure with dict
-plugin.configure({'log_level': 'DEBUG'})
-
-# Configure with kwargs
-plugin.configure(enabled=False, workers=8)
-
-# Mix both
-plugin.configure({'log_level': 'WARNING'}, cache_size=200)
-```
-
-### CLI Argument Processing
-
-```python
-import argparse
-
-def process_cli_args(args):
-    """Process CLI args, falling back to config file defaults."""
-
-    # Load defaults from config file
-    with open('config.json') as f:
-        file_config = json.load(f)
-
-    # Merge: CLI args override file config
-    opts = SmartOptions(
-        incoming=vars(args),  # argparse Namespace → dict
-        defaults=file_config,
-        ignore_none=True  # argparse sets None for unspecified args
+def serve(
+    app_dir: Annotated[str, 'Path to application directory'],
+    host: Annotated[str, 'Server host'] = '127.0.0.1',
+    port: Annotated[int, 'Server port'] = 8000,
+    workers: Annotated[int, 'Number of workers'] = 4,
+    debug: Annotated[bool, 'Enable debug mode'] = False,
+):
+    """Start the application server."""
+    # Build config with priority chain
+    config = (
+        SmartOptions(serve) +                      # 1. Function defaults
+        SmartOptions('config.yaml') +              # 2. Config file
+        SmartOptions('config.local.yaml') +        # 3. Local overrides
+        SmartOptions('ENV:MYAPP') +                # 4. Environment
+        SmartOptions(serve, sys.argv[1:])          # 5. CLI args (highest)
     )
 
-    return opts
+    print(f"Starting server at {config.host}:{config.port}")
+    print(f"App: {config.app_dir}, Workers: {config.workers}")
+    if config.debug:
+        print("Debug mode enabled")
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--host', default=None)
-parser.add_argument('--port', type=int, default=None)
-args = parser.parse_args()
-
-config = process_cli_args(args)
-# Unspecified CLI args fall back to config file
+if __name__ == '__main__':
+    serve()
 ```
 
-## Combining with extract_kwargs
+Config file (`config.yaml`):
 
-SmartOptions works great with `extract_kwargs`:
+```yaml
+host: 0.0.0.0
+workers: 8
+middleware:
+  - cors
+  - compression
+apps:
+  - name: api
+    module: api:app
+  - name: admin
+    module: admin:app
+```
 
-```python
-from genro_toolbox import extract_kwargs, SmartOptions
+Usage:
 
-class Service:
-    DEFAULT_LOGGING = {
-        'level': 'INFO',
-        'format': 'json',
-        'file': None
-    }
+```bash
+# Use defaults + config file
+./app.py /path/to/app
 
-    @extract_kwargs(logging=True)
-    def __init__(self, name, logging_kwargs=None):
-        self.name = name
+# Override port via CLI
+./app.py /path/to/app --port 9000 --debug
 
-        # Merge user logging config with defaults
-        self.logging = SmartOptions(
-            incoming=logging_kwargs,
-            defaults=self.DEFAULT_LOGGING,
-            ignore_none=True
-        )
-
-        self.setup_logging()
-
-    def setup_logging(self):
-        logging.basicConfig(
-            level=self.logging.level,
-            format=self.logging.format
-        )
-
-# All logging options from defaults
-service = Service('api')
-
-# Override specific logging options
-service = Service('api', logging_level='DEBUG')
-
-# Or use dict style
-service = Service('api', logging={'level': 'WARNING', 'file': 'app.log'})
+# Override via environment
+MYAPP_WORKERS=16 ./app.py /path/to/app
 ```
 
 ## API Reference
@@ -272,25 +312,32 @@ class SmartOptions(SimpleNamespace):
     Convenience namespace for option management.
 
     Args:
-        incoming: Mapping with runtime kwargs (can be None)
-        defaults: Mapping with baseline options (can be None)
+        incoming: One of:
+            - Mapping with runtime kwargs
+            - str path to config file (YAML, JSON, TOML, INI)
+            - str 'ENV:PREFIX' for environment variables
+            - Path object to config file
+            - Callable to extract defaults from signature
+        defaults: One of:
+            - Mapping with baseline options
+            - list[str] as argv when incoming is callable
+            - None
         ignore_none: Skip incoming entries where value is None
         ignore_empty: Skip empty strings/collections from incoming
-        filter_fn: Custom filter callable(key, value) → bool
+        filter_fn: Custom filter callable(key, value) -> bool
+
+    Operators:
+        +: Merge two SmartOptions (right side wins)
+        in: Check key existence
+        []: Bracket access (returns None for missing)
     """
 
-    def __init__(
-        self,
-        incoming: Optional[Mapping[str, Any]] = None,
-        defaults: Optional[Mapping[str, Any]] = None,
-        *,
-        ignore_none: bool = False,
-        ignore_empty: bool = False,
-        filter_fn: Optional[Callable[[str, Any], bool]] = None,
-    ): ...
-
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Return a copy of current options as dict."""
+        ...
+
+    def __add__(self, other) -> SmartOptions:
+        """Merge with another SmartOptions or dict."""
         ...
 ```
 
