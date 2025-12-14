@@ -40,25 +40,31 @@ pip install genro-toolbox
 
 ### SmartOptions
 
-Load config from multiple sources and compose with `+`:
+Load config from multiple sources with type conversion:
 
 ```python
 from genro_toolbox import SmartOptions
+import sys
 
 def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
     pass
 
-# Compose sources with priority (rightmost wins)
-config = (
-    SmartOptions(serve) +              # defaults from signature
-    SmartOptions('config.yaml') +      # file config
-    SmartOptions('ENV:MYAPP') +        # environment variables
-    SmartOptions(serve, sys.argv[1:])  # CLI args (highest priority)
-)
+# Load from env and argv with automatic type conversion
+# Priority: defaults < env < argv
+config = SmartOptions(serve, env='MYAPP', argv=sys.argv[1:])
 
-config.host   # from file or env
-config.port   # from CLI if provided
+config.host   # from env (MYAPP_HOST) or default
+config.port   # int from env (MYAPP_PORT) or argv
 config.debug  # True if --debug passed
+```
+
+Compose with `+` for file configs:
+
+```python
+config = (
+    SmartOptions('config.yaml') +      # file config
+    SmartOptions(serve, env='MYAPP', argv=sys.argv[1:])  # defaults < env < argv
+)
 ```
 
 Load from files (YAML, JSON, TOML, INI):

@@ -94,40 +94,55 @@ def _is_empty_value(value: Any) -> bool:
     return False
 
 
-def _load_from_callable(
-    func: Callable[..., Any], argv: list[str] | None = None
-) -> dict[str, Any]:
-    """Extract defaults from callable signature and parse argv."""
+def _extract_signature_info(
+    func: Callable[..., Any],
+) -> tuple[dict[str, Any], dict[str, type], list[str]]:
+    """Extract defaults, types, and positional params from callable signature."""
     import inspect
+    from typing import get_type_hints
 
     sig = inspect.signature(func)
-    result = {}
+    defaults = {}
     types = {}
     positional_params = []
 
-    # Extract defaults and types from signature
+    # Use get_type_hints to resolve stringified annotations (PEP 563)
+    try:
+        hints = get_type_hints(func)
+    except Exception:
+        hints = {}
+
     for name, param in sig.parameters.items():
         if param.default is not inspect.Parameter.empty:
-            result[name] = param.default
+            defaults[name] = param.default
         else:
             positional_params.append(name)
 
-        # Extract type from annotation
-        if param.annotation is not inspect.Parameter.empty:
-            ann = param.annotation
-            # Handle Annotated types
-            if hasattr(ann, "__origin__") and ann.__origin__ is type(None):
-                continue
-            if hasattr(ann, "__metadata__"):  # Annotated type
-                ann = ann.__args__[0]
-            if ann in (str, int, float, bool):
-                types[name] = ann
+        # Extract type from resolved hints or fallback to annotation
+        ann = hints.get(name, param.annotation)
+        if ann is inspect.Parameter.empty:
+            continue
+
+        # Handle Annotated types
+        if hasattr(ann, "__origin__") and ann.__origin__ is type(None):
+            continue
+        if hasattr(ann, "__metadata__"):  # Annotated type
+            ann = ann.__args__[0]
+        if ann in (str, int, float, bool):
+            types[name] = ann
+
+    return defaults, types, positional_params
+
+
+def _load_from_callable(func: Callable[..., Any], argv: list[str] | None = None) -> dict[str, Any]:
+    """Extract defaults from callable signature and parse argv."""
+    defaults, types, positional_params = _extract_signature_info(func)
 
     # Parse argv if provided
     if argv is not None:
-        result = _parse_argv(argv, result, types, positional_params)
+        return _parse_argv(argv, defaults, types, positional_params)
 
-    return result
+    return defaults
 
 
 def _parse_argv(
@@ -168,17 +183,30 @@ def _parse_argv(
     return result
 
 
-def _load_env(prefix: str) -> dict[str, Any]:
-    """Load config from environment variables with given prefix."""
+def _load_env(prefix: str, types: dict[str, type] | None = None) -> dict[str, Any]:
+    """Load config from environment variables with given prefix.
+
+    Args:
+        prefix: Environment variable prefix (e.g., "MYAPP" for MYAPP_HOST, MYAPP_PORT)
+        types: Optional dict mapping keys to types for conversion
+    """
     import os
 
     prefix_upper = prefix.upper() + "_"
-    result = {}
-    for key, value in os.environ.items():
+    result: dict[str, Any] = {}
+    for key, raw_value in os.environ.items():
         if key.startswith(prefix_upper):
             # Remove prefix and convert to lowercase
             clean_key = key[len(prefix_upper) :].lower()
-            result[clean_key] = value
+            # Convert type if specified
+            converted: Any = raw_value
+            if types and clean_key in types:
+                target_type = types[clean_key]
+                if target_type is bool:
+                    converted = raw_value.lower() in ("true", "1", "yes", "on")
+                else:
+                    converted = target_type(raw_value)
+            result[clean_key] = converted
     return result
 
 
@@ -203,7 +231,7 @@ def _load_config_file(path: str | Path) -> dict[str, Any]:
         try:
             import tomllib
         except ImportError:
-            import tomli as tomllib  # type: ignore[import-not-found]
+            import tomli as tomllib  # type: ignore[import-not-found,no-redef]
         with open(path, "rb") as f:
             return tomllib.load(f)
     elif suffix == ".ini":
@@ -227,7 +255,7 @@ def _wrap_nested_dicts(data: dict[str, Any]) -> dict[str, Any]:
     - String lists become SmartOptions with boolean values (feature flags)
     - Lists of dicts are indexed by first key of first element
     """
-    result = {}
+    result: dict[str, Any] = {}
     for key, value in data.items():
         if isinstance(value, dict):
             result[key] = SmartOptions(value)
@@ -267,8 +295,12 @@ class SmartOptions(SimpleNamespace):
     Convenience namespace for option management.
 
     Args:
-        incoming: Mapping with runtime kwargs, or a file path (str/Path) to load.
-        defaults: Mapping with baseline options.
+        incoming: Mapping with runtime kwargs, or a file path (str/Path) to load,
+            or a callable to extract defaults and types from its signature.
+        defaults: Mapping with baseline options, or argv list when incoming is callable.
+        env: Environment variable prefix (e.g., "MYAPP" for MYAPP_HOST).
+            Only used when incoming is a callable (types from signature are used).
+        argv: Command line arguments list. Only used when incoming is a callable.
         ignore_none: Skip incoming entries where the value is ``None``.
         ignore_empty: Skip empty strings/collections from incoming entries.
         filter_fn: Optional callable receiving ``(key, value)`` and returning
@@ -276,6 +308,12 @@ class SmartOptions(SimpleNamespace):
 
     If incoming is a string or Path and defaults is None, loads config from file.
     Nested dicts are recursively wrapped in SmartOptions.
+
+    When incoming is a callable with env/argv:
+        - Defaults come from function signature
+        - env values override defaults (with type conversion)
+        - argv values override env (with type conversion)
+        Priority: defaults < env < argv
     """
 
     def __init__(
@@ -283,14 +321,38 @@ class SmartOptions(SimpleNamespace):
         incoming: Mapping[str, Any] | str | Path | Callable[..., Any] | None = None,
         defaults: Mapping[str, Any] | list[str] | None = None,
         *,
+        env: str | None = None,
+        argv: list[str] | None = None,
         ignore_none: bool = False,
         ignore_empty: bool = False,
         filter_fn: Callable[[str, Any], bool] | None = None,
     ):
-        # If incoming is callable, defaults is argv (list)
+        # If incoming is callable, use new env/argv parameters or legacy defaults
         if callable(incoming) and not isinstance(incoming, type):
-            argv = defaults if isinstance(defaults, list) else None
-            incoming = _load_from_callable(incoming, argv)
+            sig_defaults, types, positional_params = _extract_signature_info(incoming)
+
+            # Start with signature defaults
+            result = dict(sig_defaults)
+
+            # If env or argv keyword args are provided, use new API
+            if env is not None or argv is not None:
+                # Layer env values (with type conversion)
+                if env is not None:
+                    prefix = env[4:] if env.startswith("ENV:") else env
+                    env_values = _load_env(prefix, types)
+                    result.update(env_values)
+
+                # Layer argv values (with type conversion)
+                if argv is not None:
+                    argv_values = _parse_argv(argv, {}, types, positional_params)
+                    result.update(argv_values)
+
+                incoming = result
+            else:
+                # Legacy API: defaults is argv list
+                legacy_argv = defaults if isinstance(defaults, list) else None
+                incoming = _load_from_callable(incoming, legacy_argv)
+
             defaults = None
         # If incoming is a string, detect source type
         elif isinstance(incoming, str) and defaults is None:
@@ -301,9 +363,10 @@ class SmartOptions(SimpleNamespace):
         elif isinstance(incoming, Path) and defaults is None:
             incoming = _load_config_file(incoming)
 
+        # At this point incoming is Mapping or None, defaults is Mapping or None
         merged = _merge_kwargs(
-            incoming,
-            defaults,
+            incoming,  # type: ignore[arg-type]
+            defaults,  # type: ignore[arg-type]
             filter_fn=filter_fn,
             ignore_none=ignore_none,
             ignore_empty=ignore_empty,

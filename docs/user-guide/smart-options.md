@@ -82,13 +82,42 @@ opts = SmartOptions(serve)
 print(opts.host)   # '127.0.0.1'
 print(opts.port)   # 8000
 print(opts.debug)  # False
+```
 
-# Parse argv (positional and named args)
+### Using env and argv Parameters
+
+Load from environment and CLI with automatic type conversion:
+
+```python
+def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
+    pass
+
+# Given: MYAPP_HOST=0.0.0.0 MYAPP_PORT=9000
+opts = SmartOptions(serve, env='MYAPP', argv=['--debug'])
+
+print(opts.host)   # '0.0.0.0' (from env)
+print(opts.port)   # 9000 (int, converted from env)
+print(opts.debug)  # True (from argv)
+```
+
+**Priority**: defaults < env < argv (rightmost wins)
+
+Types are extracted from the function signature and applied to both env and argv values.
+
+Boolean conversion from environment supports: `true`, `1`, `yes`, `on` (case-insensitive) → `True`
+
+### Legacy argv Syntax
+
+You can also pass argv as second positional argument:
+
+```python
 import sys
 opts = SmartOptions(serve, sys.argv[1:])
 # ./app.py --port 9000 --debug
 # opts.port = 9000, opts.debug = True
 ```
+
+### Annotated Types
 
 Supports `Annotated` types for help strings:
 
@@ -101,7 +130,7 @@ def serve(
 ):
     pass
 
-opts = SmartOptions(serve, ['/path/to/app', '--port', '9000'])
+opts = SmartOptions(serve, argv=['/path/to/app', '--port', '9000'])
 print(opts.app_dir)  # '/path/to/app'
 print(opts.port)     # 9000
 ```
@@ -258,14 +287,20 @@ def serve(
     debug: Annotated[bool, 'Enable debug mode'] = False,
 ):
     """Start the application server."""
-    # Build config with priority chain
+    # Option 1: Single SmartOptions with env and argv (recommended)
     config = (
-        SmartOptions(serve) +                      # 1. Function defaults
-        SmartOptions('config.yaml') +              # 2. Config file
-        SmartOptions('config.local.yaml') +        # 3. Local overrides
-        SmartOptions('ENV:MYAPP') +                # 4. Environment
-        SmartOptions(serve, sys.argv[1:])          # 5. CLI args (highest)
+        SmartOptions('config.yaml') +              # 1. Config file
+        SmartOptions('config.local.yaml') +        # 2. Local overrides
+        SmartOptions(serve, env='MYAPP', argv=sys.argv[1:])  # 3. defaults < env < argv
     )
+
+    # Option 2: Compose with + operator for full control
+    # config = (
+    #     SmartOptions(serve) +                    # 1. Function defaults
+    #     SmartOptions('config.yaml') +            # 2. Config file
+    #     SmartOptions('ENV:MYAPP') +              # 3. Environment (strings)
+    #     SmartOptions(serve, sys.argv[1:])        # 4. CLI args (highest)
+    # )
 
     print(f"Starting server at {config.host}:{config.port}")
     print(f"App: {config.app_dir}, Workers: {config.workers}")
@@ -320,11 +355,22 @@ class SmartOptions(SimpleNamespace):
             - Callable to extract defaults from signature
         defaults: One of:
             - Mapping with baseline options
-            - list[str] as argv when incoming is callable
+            - list[str] as argv when incoming is callable (legacy)
             - None
+        env: Environment variable prefix (e.g., "MYAPP" for MYAPP_HOST).
+            Only used when incoming is a callable. Types from signature
+            are used for conversion.
+        argv: Command line arguments list. Only used when incoming is
+            a callable. Types from signature are used for conversion.
         ignore_none: Skip incoming entries where value is None
         ignore_empty: Skip empty strings/collections from incoming
         filter_fn: Custom filter callable(key, value) -> bool
+
+    When incoming is a callable with env/argv:
+        - Defaults come from function signature
+        - env values override defaults (with type conversion)
+        - argv values override env (with type conversion)
+        Priority: defaults < env < argv
 
     Operators:
         +: Merge two SmartOptions (right side wins)

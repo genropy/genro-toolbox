@@ -286,6 +286,118 @@ class TestSmartOptionsFromEnv:
         assert opts.port == "9000"  # Note: stays as string from env
         assert opts.other_var is None
 
+    def test_env_with_callable_converts_types(self, monkeypatch):
+        """Test that env values are converted using callable signature types."""
+        monkeypatch.setenv("MYAPP_HOST", "0.0.0.0")
+        monkeypatch.setenv("MYAPP_PORT", "9000")
+        monkeypatch.setenv("MYAPP_DEBUG", "true")
+
+        def my_func(host: str = "127.0.0.1", port: int = 8000, debug: bool = False):
+            pass
+
+        opts = SmartOptions(my_func, env="MYAPP")
+        assert opts.host == "0.0.0.0"
+        assert opts.port == 9000  # Converted to int!
+        assert opts.debug is True  # Converted to bool!
+
+    def test_env_with_callable_accepts_env_prefix(self, monkeypatch):
+        """Test that env parameter accepts both 'PREFIX' and 'ENV:PREFIX'."""
+        monkeypatch.setenv("MYAPP_PORT", "9000")
+
+        def my_func(port: int = 8000):
+            pass
+
+        # With ENV: prefix
+        opts1 = SmartOptions(my_func, env="ENV:MYAPP")
+        assert opts1.port == 9000
+
+        # Without ENV: prefix
+        opts2 = SmartOptions(my_func, env="MYAPP")
+        assert opts2.port == 9000
+
+    def test_env_bool_conversion_variants(self, monkeypatch):
+        """Test various boolean string representations."""
+
+        def my_func(flag: bool = False):
+            pass
+
+        for true_value in ["true", "True", "TRUE", "1", "yes", "YES", "on", "ON"]:
+            monkeypatch.setenv("TEST_FLAG", true_value)
+            opts = SmartOptions(my_func, env="TEST")
+            assert opts.flag is True, f"Expected True for '{true_value}'"
+
+        for false_value in ["false", "False", "0", "no", "off", ""]:
+            monkeypatch.setenv("TEST_FLAG", false_value)
+            opts = SmartOptions(my_func, env="TEST")
+            assert opts.flag is False, f"Expected False for '{false_value}'"
+
+
+class TestSmartOptionsEnvArgvCombined:
+    """Tests for SmartOptions with env and argv combined."""
+
+    def test_argv_overrides_env(self, monkeypatch):
+        """Test that argv values override env values."""
+        monkeypatch.setenv("MYAPP_PORT", "9000")
+        monkeypatch.setenv("MYAPP_HOST", "fromenv")
+
+        def my_func(host: str = "default", port: int = 8000, debug: bool = False):
+            pass
+
+        opts = SmartOptions(my_func, env="MYAPP", argv=["--port", "3000", "--debug"])
+        assert opts.host == "fromenv"  # From env
+        assert opts.port == 3000  # From argv (overrides env)
+        assert opts.debug is True  # From argv
+
+    def test_priority_defaults_env_argv(self, monkeypatch):
+        """Test priority: defaults < env < argv."""
+        monkeypatch.setenv("MYAPP_HOST", "fromenv")
+        monkeypatch.setenv("MYAPP_PORT", "9000")
+
+        def my_func(
+            host: str = "default_host",
+            port: int = 8000,
+            timeout: int = 30,
+            debug: bool = False,
+        ):
+            pass
+
+        opts = SmartOptions(my_func, env="MYAPP", argv=["--debug"])
+        assert opts.host == "fromenv"  # env overrides default
+        assert opts.port == 9000  # env overrides default
+        assert opts.timeout == 30  # default (not in env or argv)
+        assert opts.debug is True  # argv overrides default
+
+    def test_only_argv_no_env(self):
+        """Test using only argv without env."""
+
+        def my_func(name: str, port: int = 8000):
+            pass
+
+        opts = SmartOptions(my_func, argv=["myapp", "--port", "9000"])
+        assert opts.name == "myapp"
+        assert opts.port == 9000
+
+    def test_only_env_no_argv(self, monkeypatch):
+        """Test using only env without argv."""
+        monkeypatch.setenv("MYAPP_PORT", "9000")
+
+        def my_func(port: int = 8000):
+            pass
+
+        opts = SmartOptions(my_func, env="MYAPP")
+        assert opts.port == 9000
+
+    def test_legacy_api_still_works(self):
+        """Test that legacy API (callable, argv_list) still works."""
+
+        def my_func(name: str, port: int = 8000):
+            pass
+
+        # Legacy API: second positional arg is argv
+        opts = SmartOptions(my_func, ["myapp", "--port", "9000"])
+        assert opts.name == "myapp"
+        assert opts.port == 9000
+
 
 class TestSmartOptionsAdd:
     """Tests for SmartOptions __add__ operator."""
@@ -456,3 +568,79 @@ class TestSmartOptionsEdgeCases:
 
         opts = SmartOptions(my_func, ["--my-option", "value"])
         assert opts.my_option == "value"
+
+    def test_mixed_list_kept_as_is(self):
+        """Test that mixed lists (not all strings, not all dicts) are kept as-is."""
+        opts = SmartOptions({"items": ["string", 123, {"key": "value"}]})
+        assert opts.items == ["string", 123, {"key": "value"}]
+
+    def test_function_without_annotations(self):
+        """Test function without type annotations."""
+
+        def my_func(name, port=8000):
+            pass
+
+        opts = SmartOptions(my_func, ["myapp"])
+        assert opts.name == "myapp"
+        assert opts.port == 8000
+
+    def test_get_type_hints_failure(self):
+        """Test handling of get_type_hints failure (edge case)."""
+        # Create a function with forward reference that can't be resolved
+        # This should trigger the except block in _extract_signature_info
+        def broken_func(x: "NonExistentType" = None):  # noqa: F821
+            pass
+
+        # Should not raise, just fall back to no types
+        opts = SmartOptions(broken_func)
+        assert opts.x is None
+
+    def test_loads_json_file(self, tmp_path):
+        """Test loading config from JSON file."""
+        config_file = tmp_path / "config.json"
+        config_file.write_text('{"host": "localhost", "port": 8080}')
+
+        opts = SmartOptions(str(config_file))
+        assert opts.host == "localhost"
+        assert opts.port == 8080
+
+
+class TestDictExtract:
+    """Tests for legacy dictExtract function."""
+
+    def test_basic_extraction(self):
+        """Test basic prefix extraction."""
+        from genro_toolbox.dict_utils import dictExtract
+
+        data = {"db_host": "localhost", "db_port": 5432, "app_name": "test"}
+        result = dictExtract(data, "db_")
+        assert result == {"host": "localhost", "port": 5432}
+        # Original dict unchanged
+        assert "db_host" in data
+
+    def test_pop_removes_from_source(self):
+        """Test pop=True removes items from source dict."""
+        from genro_toolbox.dict_utils import dictExtract
+
+        data = {"db_host": "localhost", "db_port": 5432, "app_name": "test"}
+        result = dictExtract(data, "db_", pop=True)
+        assert result == {"host": "localhost", "port": 5432}
+        # Items removed from original
+        assert "db_host" not in data
+        assert "app_name" in data
+
+    def test_slice_prefix_false(self):
+        """Test slice_prefix=False keeps full key names."""
+        from genro_toolbox.dict_utils import dictExtract
+
+        data = {"db_host": "localhost", "db_port": 5432}
+        result = dictExtract(data, "db_", slice_prefix=False)
+        assert result == {"db_host": "localhost", "db_port": 5432}
+
+    def test_reserved_name_class(self):
+        """Test that 'class' key is renamed to '_class'."""
+        from genro_toolbox.dict_utils import dictExtract
+
+        data = {"widget_class": "Button", "widget_name": "submit"}
+        result = dictExtract(data, "widget_")
+        assert result == {"_class": "Button", "name": "submit"}
