@@ -10,6 +10,7 @@ from .decorators import extract_kwargs
 from .dict_utils import SmartOptions, dictExtract
 from .typeutils import safe_is_instance
 from .ascii_table import render_ascii_table, render_markdown_table
+from .tags_match import tags_match, TagExpressionError
 
 __all__ = [
     "extract_kwargs",
@@ -18,4 +19,6 @@ __all__ = [
     "safe_is_instance",
     "render_ascii_table",
     "render_markdown_table",
+    "tags_match",
+    "TagExpressionError",
 ]
