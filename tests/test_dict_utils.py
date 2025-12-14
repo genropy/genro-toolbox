@@ -586,6 +586,7 @@ class TestSmartOptionsEdgeCases:
 
     def test_get_type_hints_failure(self):
         """Test handling of get_type_hints failure (edge case)."""
+
         # Create a function with forward reference that can't be resolved
         # This should trigger the except block in _extract_signature_info
         def broken_func(x: "NonExistentType" = None):  # noqa: F821

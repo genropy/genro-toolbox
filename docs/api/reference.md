@@ -240,6 +240,82 @@ def render_markdown_table(data: dict) -> str
 
 See [ASCII Table Guide](../user-guide/ascii-table.md) for detailed examples.
 
+## tags_match
+
+```{eval-rst}
+.. autofunction:: genro_toolbox.tags_match
+```
+
+### Function Signature
+
+```python
+def tags_match(
+    rule: str,
+    values: set[str],
+    *,
+    max_length: int = 200,
+    max_depth: int = 6,
+) -> bool
+```
+
+### Parameters
+
+**rule** : `str`
+: Boolean expression string (e.g., `"admin&!internal"`).
+
+**values** : `set[str]`
+: Set of tag strings to match against.
+
+**max_length** : `int`
+: Maximum allowed length for the rule string. Default: 200.
+
+**max_depth** : `int`
+: Maximum nesting depth for parentheses. Default: 6.
+
+### Returns
+
+**bool**
+: True if the expression matches the given values.
+
+### Raises
+
+**TagExpressionError**
+: If the rule is invalid or exceeds limits.
+
+### Operators
+
+| Symbol | Keyword | Meaning |
+|--------|---------|---------|
+| `,` or `\|` | `or` | OR (either matches) |
+| `&` | `and` | AND (both must match) |
+| `!` | `not` | NOT (must not match) |
+| `()` | - | Grouping |
+
+### Grammar
+
+```text
+expr     := or_expr
+or_expr  := and_expr (('|' | ',' | 'or') and_expr)*
+and_expr := not_expr (('&' | 'and') not_expr)*
+not_expr := ('!' | 'not') not_expr | primary
+primary  := '(' expr ')' | TAG
+TAG      := [a-zA-Z_][a-zA-Z0-9_]* (excluding keywords)
+```
+
+### Examples
+
+See [tags_match Guide](../user-guide/tags-match.md) for detailed examples.
+
+## TagExpressionError
+
+```{eval-rst}
+.. autoclass:: genro_toolbox.TagExpressionError
+```
+
+Exception raised when a tag expression is invalid.
+
+Inherits from `ValueError`.
+
 ## Helper Functions
 
 ### filtered_dict

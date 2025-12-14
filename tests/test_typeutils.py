@@ -111,7 +111,9 @@ class TestSafeIsInstance:
         # Should recognize entire inheritance chain
         assert safe_is_instance(obj, f"{Child.__module__}.{Child.__qualname__}")
         assert safe_is_instance(obj, f"{Parent.__module__}.{Parent.__qualname__}")
-        assert safe_is_instance(obj, f"{GrandParent.__module__}.{GrandParent.__qualname__}")
+        assert safe_is_instance(
+            obj, f"{GrandParent.__module__}.{GrandParent.__qualname__}"
+        )
 
     def test_caching_behavior(self):
         """Test that caching works correctly."""
@@ -161,4 +163,6 @@ class TestSafeIsInstanceEdgeCases:
 
         obj = Outer.Inner()
         # Nested classes have qualified names with dots
-        assert safe_is_instance(obj, f"{Outer.Inner.__module__}.{Outer.Inner.__qualname__}")
+        assert safe_is_instance(
+            obj, f"{Outer.Inner.__module__}.{Outer.Inner.__qualname__}"
+        )

@@ -134,7 +134,9 @@ def _extract_signature_info(
     return defaults, types, positional_params
 
 
-def _load_from_callable(func: Callable[..., Any], argv: list[str] | None = None) -> dict[str, Any]:
+def _load_from_callable(
+    func: Callable[..., Any], argv: list[str] | None = None
+) -> dict[str, Any]:
     """Extract defaults from callable signature and parse argv."""
     defaults, types, positional_params = _extract_signature_info(func)
 

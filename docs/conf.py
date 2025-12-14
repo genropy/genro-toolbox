@@ -1,4 +1,5 @@
 """Sphinx configuration for Genro-Toolbox documentation."""
+
 import os
 import sys
 from pathlib import Path
@@ -15,24 +16,24 @@ version = "0.1"
 
 # General configuration
 extensions = [
-    "sphinx.ext.autodoc",           # Auto-generate docs from docstrings
-    "sphinx.ext.napoleon",          # Google/NumPy style docstrings
-    "sphinx.ext.viewcode",          # Add links to source code
-    "sphinx.ext.intersphinx",       # Link to other projects' docs
-    "sphinx.ext.todo",              # TODO notes support
-    "sphinx.ext.coverage",          # Coverage reporting
-    "sphinx.ext.githubpages",       # GitHub Pages support
-    "sphinx_autodoc_typehints",     # Type hints in docs
-    "myst_parser",                  # Markdown support (CRITICAL)
-    "sphinxcontrib.mermaid",        # Mermaid diagrams (CRITICAL)
+    "sphinx.ext.autodoc",  # Auto-generate docs from docstrings
+    "sphinx.ext.napoleon",  # Google/NumPy style docstrings
+    "sphinx.ext.viewcode",  # Add links to source code
+    "sphinx.ext.intersphinx",  # Link to other projects' docs
+    "sphinx.ext.todo",  # TODO notes support
+    "sphinx.ext.coverage",  # Coverage reporting
+    "sphinx.ext.githubpages",  # GitHub Pages support
+    "sphinx_autodoc_typehints",  # Type hints in docs
+    "myst_parser",  # Markdown support (CRITICAL)
+    "sphinxcontrib.mermaid",  # Mermaid diagrams (CRITICAL)
 ]
 
 # MyST Parser configuration (Markdown)
 myst_enable_extensions = [
-    "colon_fence",      # ::: fences
-    "deflist",          # Definition lists
-    "substitution",     # Variable substitutions
-    "tasklist",         # Task lists with checkboxes
+    "colon_fence",  # ::: fences
+    "deflist",  # Definition lists
+    "substitution",  # Variable substitutions
+    "tasklist",  # Task lists with checkboxes
 ]
 myst_heading_anchors = 3
 
@@ -59,9 +60,9 @@ exclude_patterns = [
 
 # Suppress specific warnings
 suppress_warnings = [
-    "toc.not_included",              # Docs not in toctree
-    "myst.xref_missing",             # Missing cross-references
-    "misc.highlighting_failure",     # Pygments highlighting issues
+    "toc.not_included",  # Docs not in toctree
+    "myst.xref_missing",  # Missing cross-references
+    "misc.highlighting_failure",  # Pygments highlighting issues
 ]
 
 # HTML output configuration

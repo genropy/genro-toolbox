@@ -35,6 +35,7 @@ pip install genro-toolbox
 - **safe_is_instance** - isinstance() without importing the class
 - **render_ascii_table** - ASCII table rendering with formatting
 - **render_markdown_table** - Markdown table rendering
+- **tags_match** - Boolean expression matcher for tag-based filtering
 
 ## Examples
 
@@ -144,6 +145,31 @@ print(render_ascii_table(data))
 # +-------+--------+
 # |Bob    |false   |
 # +-------+--------+
+```
+
+### tags_match
+
+```python
+from genro_toolbox import tags_match
+
+# Simple tag check
+tags_match("admin", {"admin", "user"})  # True
+
+# OR (comma, pipe, or keyword)
+tags_match("admin,public", {"public"})  # True
+tags_match("admin or public", {"admin"})  # True
+
+# AND (ampersand or keyword)
+tags_match("admin&internal", {"admin", "internal"})  # True
+tags_match("admin and internal", {"admin"})  # False
+
+# NOT (exclamation or keyword)
+tags_match("!admin", {"public"})  # True
+tags_match("not admin", {"admin"})  # False
+
+# Complex expressions
+tags_match("(admin|public)&!internal", {"admin"})  # True
+tags_match("(admin or public) and not internal", {"admin", "internal"})  # False
 ```
 
 ## Philosophy

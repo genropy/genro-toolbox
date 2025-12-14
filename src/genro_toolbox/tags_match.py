@@ -168,9 +168,7 @@ class _TagParser:
         # Check for remaining non-whitespace
         remaining = self._rule[pos:].strip()
         if remaining:
-            raise TagExpressionError(
-                f"Invalid character in tag rule: '{remaining[0]}'"
-            )
+            raise TagExpressionError(f"Invalid character in tag rule: '{remaining[0]}'")
 
     def _current(self) -> tuple[str, str] | None:
         """Get current token or None if exhausted."""
@@ -191,9 +189,7 @@ class _TagParser:
         if not token or token[0] != token_type:
             expected = token_type
             got = token[0] if token else "end of expression"
-            raise TagExpressionError(
-                f"Expected {expected}, got {got} in: {self._rule}"
-            )
+            raise TagExpressionError(f"Expected {expected}, got {got} in: {self._rule}")
         self._advance()
         return token[1]
 
@@ -256,9 +252,7 @@ class _TagParser:
         token = self._current()
 
         if not token:
-            raise TagExpressionError(
-                f"Unexpected end of expression: {self._rule}"
-            )
+            raise TagExpressionError(f"Unexpected end of expression: {self._rule}")
 
         if token[0] == "LPAREN":
             self._advance()
@@ -276,6 +270,4 @@ class _TagParser:
             self._advance()
             return token[1] in self._values
 
-        raise TagExpressionError(
-            f"Unexpected token '{token[1]}' in: {self._rule}"
-        )
+        raise TagExpressionError(f"Unexpected token '{token[1]}' in: {self._rule}")

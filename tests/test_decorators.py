@@ -20,7 +20,9 @@ class TestExtractKwargsBasic:
         def func(self, name, logging_kwargs=None, **kwargs):
             return {"logging": logging_kwargs, "other": kwargs}
 
-        result = func(dummy, name="test", logging_level="INFO", logging_format="json", timeout=30)
+        result = func(
+            dummy, name="test", logging_level="INFO", logging_format="json", timeout=30
+        )
 
         assert result["logging"] == {"level": "INFO", "format": "json"}
         assert result["other"] == {"timeout": 30}
