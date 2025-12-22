@@ -102,6 +102,12 @@ from genro_toolbox import TreeDict
 # Create from nested dict
 td = TreeDict({"user": {"name": "Alice", "prefs": {"theme": "dark"}}})
 
+# Or from JSON string
+td = TreeDict('{"user": {"name": "Alice"}}')
+
+# Or from config file (JSON, YAML, TOML, INI)
+td = TreeDict.from_file("config.yaml")
+
 # Attribute access
 td.user.name           # "Alice"
 td.user.prefs.theme    # "dark"
@@ -125,6 +131,17 @@ for path, value in td.walk():
     print(f"{path} = {value}")
 # users.#0.name = Alice
 # users.#1.name = Bob
+
+# Thread-safe access (sync)
+with td:
+    td.counter = td.counter + 1
+
+# Async-safe access
+async with td:
+    td.counter = td.counter + 1
+
+# Convert back to dict
+td.as_dict()  # {"user": {"name": "Alice", ...}}
 ```
 
 ### extract_kwargs Decorator

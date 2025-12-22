@@ -3,7 +3,6 @@
 
 """Tests for TreeDict class."""
 
-import asyncio
 import json
 import tempfile
 from pathlib import Path
@@ -466,9 +465,7 @@ class TestTreeDictFromFile:
 
     def test_from_json_file(self) -> None:
         """Load TreeDict from JSON file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"server": {"host": "localhost", "port": 8080}}, f)
             f.flush()
             td = TreeDict.from_file(f.name)
@@ -493,9 +490,7 @@ class TestTreeDictFromFile:
 
     def test_from_file_with_path_object(self) -> None:
         """from_file accepts Path object."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"key": "value"}, f)
             f.flush()
             td = TreeDict.from_file(Path(f.name))
