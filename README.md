@@ -31,6 +31,7 @@ pip install genro-toolbox
 ## Features
 
 - **SmartOptions** - Multi-source config with merge via `+` operator
+- **TreeDict** - Hierarchical dict with dot notation and path access
 - **extract_kwargs** - Decorator to group kwargs by prefix
 - **safe_is_instance** - isinstance() without importing the class
 - **render_ascii_table** - ASCII table rendering with formatting
@@ -89,6 +90,41 @@ opts = SmartOptions(
 
 opts.timeout   # 30 (runtime wins)
 opts.retries   # 3 (from defaults)
+```
+
+### TreeDict
+
+Hierarchical dictionary with dot notation and path access:
+
+```python
+from genro_toolbox import TreeDict
+
+# Create from nested dict
+td = TreeDict({"user": {"name": "Alice", "prefs": {"theme": "dark"}}})
+
+# Attribute access
+td.user.name           # "Alice"
+td.user.prefs.theme    # "dark"
+td.missing             # None (no AttributeError)
+
+# Path string access
+td["user.name"]        # "Alice"
+td["user.prefs.theme"] # "dark"
+
+# Auto-create intermediate dicts on write
+td["settings.db.host"] = "localhost"
+td.settings.db.host    # "localhost"
+
+# List access with #N syntax
+td = TreeDict({"users": [{"name": "Alice"}, {"name": "Bob"}]})
+td["users.#0.name"]    # "Alice"
+td["users.#1.name"]    # "Bob"
+
+# Walk all paths
+for path, value in td.walk():
+    print(f"{path} = {value}")
+# users.#0.name = Alice
+# users.#1.name = Bob
 ```
 
 ### extract_kwargs Decorator
