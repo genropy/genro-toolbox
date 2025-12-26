@@ -24,27 +24,27 @@ class TestTreeDictInit:
     def test_init_with_flat_dict(self) -> None:
         """TreeDict should accept flat dict."""
         td = TreeDict({"a": 1, "b": 2})
-        assert td.a == 1
-        assert td.b == 2
+        assert td["a"] == 1
+        assert td["b"] == 2
 
     def test_init_with_nested_dict(self) -> None:
         """TreeDict should wrap nested dicts."""
         td = TreeDict({"a": {"b": {"c": 1}}})
-        assert isinstance(td.a, TreeDict)
-        assert isinstance(td.a.b, TreeDict)
-        assert td.a.b.c == 1
+        assert isinstance(td["a"], TreeDict)
+        assert isinstance(td["a.b"], TreeDict)
+        assert td["a.b.c"] == 1
 
     def test_init_with_list(self) -> None:
         """TreeDict should keep lists as lists."""
         td = TreeDict({"data": [1, 2, 3]})
-        assert td.data == [1, 2, 3]
-        assert isinstance(td.data, list)
+        assert td["data"] == [1, 2, 3]
+        assert isinstance(td["data"], list)
 
     def test_init_with_json_string(self) -> None:
         """TreeDict should parse JSON string."""
         td = TreeDict('{"a": 1, "b": {"c": 2}}')
-        assert td.a == 1
-        assert td.b.c == 2
+        assert td["a"] == 1
+        assert td["b.c"] == 2
 
     def test_init_with_invalid_json_raises(self) -> None:
         """TreeDict should raise on invalid JSON string."""
@@ -55,55 +55,6 @@ class TestTreeDictInit:
         """TreeDict should raise on invalid type."""
         with pytest.raises(TypeError):
             TreeDict(123)  # type: ignore[arg-type]
-
-
-class TestTreeDictAttributeAccess:
-    """Tests for attribute access."""
-
-    def test_get_existing_attr(self) -> None:
-        """Accessing existing attribute returns value."""
-        td = TreeDict({"name": "test"})
-        assert td.name == "test"
-
-    def test_get_missing_attr(self) -> None:
-        """Accessing missing attribute returns None."""
-        td = TreeDict()
-        assert td.missing is None
-
-    def test_get_nested_attr(self) -> None:
-        """Accessing nested attributes works."""
-        td = TreeDict({"a": {"b": {"c": 1}}})
-        assert td.a.b.c == 1
-
-    def test_get_nested_missing(self) -> None:
-        """Accessing nested missing attribute returns None."""
-        td = TreeDict({"a": {"b": 1}})
-        assert td.a.c is None
-
-    def test_set_attr(self) -> None:
-        """Setting attribute works."""
-        td = TreeDict()
-        td.name = "test"
-        assert td.name == "test"
-
-    def test_set_nested_attr(self) -> None:
-        """Setting nested attribute works if parent exists."""
-        td = TreeDict({"a": {}})
-        td.a.b = 1
-        assert td.a.b == 1
-
-    def test_del_attr(self) -> None:
-        """Deleting attribute works."""
-        td = TreeDict({"a": 1, "b": 2})
-        del td.a
-        assert td.a is None
-        assert td.b == 2
-
-    def test_del_missing_attr_raises(self) -> None:
-        """Deleting missing attribute raises AttributeError."""
-        td = TreeDict()
-        with pytest.raises(AttributeError):
-            del td.missing
 
 
 class TestTreeDictPathAccess:
@@ -128,21 +79,21 @@ class TestTreeDictPathAccess:
         """Setting by simple path works."""
         td = TreeDict()
         td["a"] = 1
-        assert td.a == 1
+        assert td["a"] == 1
 
     def test_set_creates_intermediate(self) -> None:
         """Setting nested path creates intermediate dicts."""
         td = TreeDict()
         td["a.b.c"] = 1
-        assert td.a.b.c == 1
-        assert isinstance(td.a, TreeDict)
-        assert isinstance(td.a.b, TreeDict)
+        assert td["a.b.c"] == 1
+        assert isinstance(td["a"], TreeDict)
+        assert isinstance(td["a.b"], TreeDict)
 
     def test_del_simple_path(self) -> None:
         """Deleting by simple path works."""
         td = TreeDict({"a": 1})
         del td["a"]
-        assert td.a is None
+        assert td["a"] is None
 
     def test_del_nested_path(self) -> None:
         """Deleting by nested path works."""
@@ -189,20 +140,20 @@ class TestTreeDictListAccess:
         td = TreeDict()
         td["data.#0.id"] = 1
         assert td["data.#0.id"] == 1
-        assert isinstance(td.data, list)
+        assert isinstance(td["data"], list)
 
     def test_set_list_with_gap(self) -> None:
         """Setting list item beyond length pads with None."""
         td = TreeDict()
         td["data.#0"] = "a"
         td["data.#2"] = "c"
-        assert td.data == ["a", None, "c"]
+        assert td["data"] == ["a", None, "c"]
 
     def test_del_list_item(self) -> None:
         """Deleting list item works."""
         td = TreeDict({"data": [1, 2, 3]})
         del td["data.#1"]
-        assert td.data == [1, 3]
+        assert td["data"] == [1, 3]
 
 
 class TestTreeDictDictInterface:
@@ -357,8 +308,8 @@ class TestTreeDictContextManager:
         """Context manager acquires and releases lock."""
         td = TreeDict({"a": 1})
         with td:
-            td.b = 2
-        assert td.b == 2
+            td["b"] = 2
+        assert td["b"] == 2
 
     def test_context_manager_returns_self(self) -> None:
         """Context manager returns TreeDict instance."""
@@ -371,22 +322,22 @@ class TestTreeDictContextManager:
         td = TreeDict({"a": 1})
         with td:
             with td:
-                td.b = 2
-        assert td.b == 2
+                td["b"] = 2
+        assert td["b"] == 2
 
     def test_context_manager_with_exception(self) -> None:
         """Lock is released even if exception occurs."""
         td = TreeDict({"a": 1})
         try:
             with td:
-                td.b = 2
+                td["b"] = 2
                 raise ValueError("test error")
         except ValueError:
             pass
         # Lock should be released, we can acquire it again
         with td:
-            td.c = 3
-        assert td.c == 3
+            td["c"] = 3
+        assert td["c"] == 3
 
 
 class TestTreeDictAsyncContextManager:
@@ -397,8 +348,8 @@ class TestTreeDictAsyncContextManager:
         """Async context manager acquires and releases lock."""
         td = TreeDict({"a": 1})
         async with td:
-            td.b = 2
-        assert td.b == 2
+            td["b"] = 2
+        assert td["b"] == 2
 
     @pytest.mark.asyncio
     async def test_async_context_manager_returns_self(self) -> None:
@@ -413,14 +364,14 @@ class TestTreeDictAsyncContextManager:
         td = TreeDict({"a": 1})
         try:
             async with td:
-                td.b = 2
+                td["b"] = 2
                 raise ValueError("test error")
         except ValueError:
             pass
         # Lock should be released, we can acquire it again
         async with td:
-            td.c = 3
-        assert td.c == 3
+            td["c"] = 3
+        assert td["c"] == 3
 
     @pytest.mark.asyncio
     async def test_async_lock_lazy_init(self) -> None:
@@ -438,26 +389,26 @@ class TestTreeDictNestedTreeDict:
         """Assigning TreeDict shares the underlying data."""
         td1 = TreeDict({"x": 1})
         td2 = TreeDict()
-        td2.child = td1
+        td2["child"] = td1
 
-        # Modifying td1 affects td2.child (same _data reference)
-        td1.x = 999
-        assert td2.child.x == 999
+        # Modifying td1 affects td2["child"] (same _data reference)
+        td1["x"] = 999
+        assert td2["child.x"] == 999
 
     def test_assign_treedict_is_treedict(self) -> None:
         """Assigned TreeDict remains a TreeDict."""
         td1 = TreeDict({"x": 1})
         td2 = TreeDict()
-        td2.child = td1
+        td2["child"] = td1
 
-        assert isinstance(td2.child, TreeDict)
+        assert isinstance(td2["child"], TreeDict)
 
     def test_nested_treedict_in_init(self) -> None:
         """TreeDict in init data is handled."""
         inner = TreeDict({"x": 1})
-        outer = TreeDict({"child": inner._data})
+        outer = TreeDict({"child": inner.as_dict()})
 
-        assert outer.child.x == 1
+        assert outer["child.x"] == 1
 
 
 class TestTreeDictFromFile:
@@ -470,8 +421,8 @@ class TestTreeDictFromFile:
             f.flush()
             td = TreeDict.from_file(f.name)
 
-        assert td.server.host == "localhost"
-        assert td.server.port == 8080
+        assert td["server.host"] == "localhost"
+        assert td["server.port"] == 8080
         Path(f.name).unlink()
 
     def test_from_file_not_found(self) -> None:
@@ -495,5 +446,153 @@ class TestTreeDictFromFile:
             f.flush()
             td = TreeDict.from_file(Path(f.name))
 
-        assert td.key == "value"
+        assert td["key"] == "value"
         Path(f.name).unlink()
+
+    def test_from_yaml_file(self) -> None:
+        """Load TreeDict from YAML file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("server:\n  host: localhost\n  port: 8080\n")
+            f.flush()
+            td = TreeDict.from_file(f.name)
+
+        assert td["server.host"] == "localhost"
+        assert td["server.port"] == 8080
+        Path(f.name).unlink()
+
+    def test_from_yml_file(self) -> None:
+        """Load TreeDict from .yml file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
+            f.write("key: value\n")
+            f.flush()
+            td = TreeDict.from_file(f.name)
+
+        assert td["key"] == "value"
+        Path(f.name).unlink()
+
+    def test_from_toml_file(self) -> None:
+        """Load TreeDict from TOML file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write('[server]\nhost = "localhost"\nport = 8080\n')
+            f.flush()
+            td = TreeDict.from_file(f.name)
+
+        assert td["server.host"] == "localhost"
+        assert td["server.port"] == 8080
+        Path(f.name).unlink()
+
+    def test_from_ini_file(self) -> None:
+        """Load TreeDict from INI file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ini", delete=False) as f:
+            f.write("[server]\nhost = localhost\nport = 8080\n")
+            f.flush()
+            td = TreeDict.from_file(f.name)
+
+        assert td["server.host"] == "localhost"
+        assert td["server.port"] == "8080"  # INI values are strings
+        Path(f.name).unlink()
+
+    def test_from_empty_yaml_file(self) -> None:
+        """Load TreeDict from empty YAML file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("")
+            f.flush()
+            td = TreeDict.from_file(f.name)
+
+        assert td.as_dict() == {}
+        Path(f.name).unlink()
+
+
+class TestTreeDictDeleteEdgeCases:
+    """Tests for delete edge cases."""
+
+    def test_delete_nested_key(self) -> None:
+        """Delete a nested key."""
+        td = TreeDict({"a": {"b": {"c": 1, "d": 2}}})
+        del td["a.b.c"]
+        assert td["a.b.c"] is None
+        assert td["a.b.d"] == 2
+
+    def test_delete_nonexistent_key_raises(self) -> None:
+        """Delete nonexistent key raises KeyError."""
+        td = TreeDict({"a": 1})
+        with pytest.raises(KeyError):
+            del td["nonexistent"]
+
+    def test_delete_nonexistent_nested_key_raises(self) -> None:
+        """Delete nonexistent nested key raises KeyError."""
+        td = TreeDict({"a": {"b": 1}})
+        with pytest.raises(KeyError):
+            del td["a.nonexistent"]
+
+    def test_delete_through_non_dict_raises(self) -> None:
+        """Delete through non-dict value raises KeyError."""
+        td = TreeDict({"a": 1})
+        with pytest.raises(KeyError):
+            del td["a.b"]
+
+    def test_delete_from_list(self) -> None:
+        """Delete from list removes the element."""
+        td = TreeDict({"items": [1, 2, 3]})
+        del td["items.#0"]
+        assert td["items"] == [2, 3]
+
+
+class TestTreeDictWalkEdgeCases:
+    """Tests for walk edge cases."""
+
+    def test_walk_with_nested_lists(self) -> None:
+        """Walk with expand_lists through nested lists."""
+        td = TreeDict({"data": [[1, 2], [3, 4]]})
+        paths = list(td.walk(expand_lists=True))
+        assert ("data.#0.#0", 1) in paths
+        assert ("data.#0.#1", 2) in paths
+        assert ("data.#1.#0", 3) in paths
+        assert ("data.#1.#1", 4) in paths
+
+    def test_walk_list_of_dicts_with_expand(self) -> None:
+        """Walk list of dicts with expand_lists."""
+        td = TreeDict({"users": [{"name": "Alice"}, {"name": "Bob"}]})
+        paths = list(td.walk(expand_lists=True))
+        assert ("users.#0.name", "Alice") in paths
+        assert ("users.#1.name", "Bob") in paths
+
+
+class TestTreeDictSetEdgeCases:
+    """Tests for set edge cases."""
+
+    def test_set_through_list_raises(self) -> None:
+        """Set through list index raises TypeError."""
+        td = TreeDict({"items": [1, 2, 3]})
+        with pytest.raises(TypeError):
+            td["items.#0.value"] = "x"
+
+    def test_set_creates_intermediate_dicts(self) -> None:
+        """Set creates intermediate dicts."""
+        td = TreeDict({})
+        td["a.b.c.d"] = 1
+        assert td["a.b.c.d"] == 1
+        assert isinstance(td["a"], TreeDict)
+        assert isinstance(td["a.b"], TreeDict)
+        assert isinstance(td["a.b.c"], TreeDict)
+
+
+class TestTreeDictGetEdgeCases:
+    """Tests for get edge cases."""
+
+    def test_get_with_default(self) -> None:
+        """Get with default value."""
+        td = TreeDict({"a": 1})
+        assert td.get("a", 99) == 1
+        assert td.get("missing", 99) == 99
+
+    def test_get_nested_with_default(self) -> None:
+        """Get nested path with default."""
+        td = TreeDict({"a": {"b": 1}})
+        assert td.get("a.b", 99) == 1
+        assert td.get("a.missing", 99) == 99
+
+    def test_get_through_non_dict_returns_default(self) -> None:
+        """Get through non-dict returns default."""
+        td = TreeDict({"a": 1})
+        assert td.get("a.b", 99) == 99

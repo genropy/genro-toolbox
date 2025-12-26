@@ -4,7 +4,7 @@ Complete guide to using `SmartOptions` for intelligent option merging and config
 
 ## Overview
 
-`SmartOptions` is a versatile namespace class for managing configuration with intelligent merging, multi-source loading, and hierarchical data support.
+`SmartOptions` is a versatile namespace class for managing configuration with intelligent merging, multi-source loading, and hierarchical data support. Built on `TreeDict`, it uses path notation for accessing nested values.
 
 **Key Features**:
 
@@ -15,6 +15,7 @@ Complete guide to using `SmartOptions` for intelligent option merging and config
 - Nested dicts become SmartOptions recursively
 - String lists become feature flags
 - List of dicts indexed by first key value
+- Path notation access: `opts["server.host"]`
 
 ## Basic Usage
 
@@ -27,8 +28,8 @@ opts = SmartOptions(
     defaults={'timeout': 1, 'retries': 3}
 )
 
-print(opts.timeout)  # 5 (from incoming)
-print(opts.retries)  # 3 (from defaults)
+print(opts["timeout"])  # 5 (from incoming)
+print(opts["retries"])  # 3 (from defaults)
 ```
 
 ## Loading from Files
@@ -63,8 +64,8 @@ Use the `ENV:PREFIX` syntax to load from environment variables:
 # Given: MYAPP_HOST=localhost MYAPP_PORT=9000
 opts = SmartOptions('ENV:MYAPP')
 
-print(opts.host)  # 'localhost'
-print(opts.port)  # '9000' (string from env)
+print(opts["host"])  # 'localhost'
+print(opts["port"])  # '9000' (string from env)
 ```
 
 The prefix is stripped and keys are lowercased.
@@ -79,9 +80,9 @@ def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
 
 # Just extract defaults
 opts = SmartOptions(serve)
-print(opts.host)   # '127.0.0.1'
-print(opts.port)   # 8000
-print(opts.debug)  # False
+print(opts["host"])   # '127.0.0.1'
+print(opts["port"])   # 8000
+print(opts["debug"])  # False
 ```
 
 ### Using env and argv Parameters
@@ -95,9 +96,9 @@ def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
 # Given: MYAPP_HOST=0.0.0.0 MYAPP_PORT=9000
 opts = SmartOptions(serve, env='MYAPP', argv=['--debug'])
 
-print(opts.host)   # '0.0.0.0' (from env)
-print(opts.port)   # 9000 (int, converted from env)
-print(opts.debug)  # True (from argv)
+print(opts["host"])   # '0.0.0.0' (from env)
+print(opts["port"])   # 9000 (int, converted from env)
+print(opts["debug"])  # True (from argv)
 ```
 
 **Priority**: defaults < env < argv (rightmost wins)
@@ -114,7 +115,7 @@ You can also pass argv as second positional argument:
 import sys
 opts = SmartOptions(serve, sys.argv[1:])
 # ./app.py --port 9000 --debug
-# opts.port = 9000, opts.debug = True
+# opts["port"] = 9000, opts["debug"] = True
 ```
 
 ### Annotated Types
@@ -131,8 +132,8 @@ def serve(
     pass
 
 opts = SmartOptions(serve, argv=['/path/to/app', '--port', '9000'])
-print(opts.app_dir)  # '/path/to/app'
-print(opts.port)     # 9000
+print(opts["app_dir"])  # '/path/to/app'
+print(opts["port"])     # 9000
 ```
 
 ## Composing with `+` Operator
@@ -156,8 +157,8 @@ You can also add plain dicts:
 
 ```python
 opts = SmartOptions({'a': 1}) + {'b': 2, 'a': 10}
-print(opts.a)  # 10 (dict overrides)
-print(opts.b)  # 2
+print(opts["a"])  # 10 (dict overrides)
+print(opts["b"])  # 2
 ```
 
 ## Nested Structures
@@ -172,8 +173,8 @@ opts = SmartOptions({
     }
 })
 
-print(opts.server.host)  # 'localhost'
-print(opts.server.port)  # 8080
+print(opts["server.host"])  # 'localhost'
+print(opts["server.port"])  # 8080
 ```
 
 ### String Lists Become Feature Flags
@@ -183,9 +184,9 @@ opts = SmartOptions({
     'middleware': ['cors', 'compression', 'logging']
 })
 
-print(opts.middleware.cors)         # True
-print(opts.middleware.compression)  # True
-print('cors' in opts.middleware)    # True
+print(opts["middleware.cors"])         # True
+print(opts["middleware.compression"])  # True
+print('cors' in opts["middleware"])    # True
 ```
 
 ### List of Dicts Indexed by First Key
@@ -198,9 +199,9 @@ opts = SmartOptions({
     ]
 })
 
-print(opts.apps.shop.module)    # 'shop:ShopApp'
-print(opts.apps.office.module)  # 'office:OfficeApp'
-print('shop' in opts.apps)      # True
+print(opts["apps.shop.module"])    # 'shop:ShopApp'
+print(opts["apps.office.module"])  # 'office:OfficeApp'
+print('shop' in opts["apps"])      # True
 ```
 
 ## Filtering Options
@@ -214,7 +215,7 @@ opts = SmartOptions(
     ignore_none=True
 )
 
-print(opts.timeout)  # 10 (default kept)
+print(opts["timeout"])  # 10 (default kept)
 ```
 
 ### Ignore Empty Collections
@@ -226,8 +227,8 @@ opts = SmartOptions(
     ignore_empty=True
 )
 
-print(opts.tags)  # SmartOptions with 'prod': True
-print(opts.name)  # 'default'
+print(opts["tags.prod"])  # True (feature flag)
+print(opts["name"])       # 'default'
 ```
 
 ### Custom Filter Function
@@ -242,8 +243,8 @@ opts = SmartOptions(
     filter_fn=only_positive
 )
 
-print(opts.timeout)  # 30 (negative filtered)
-print(opts.retries)  # 3 (positive, accepted)
+print(opts["timeout"])  # 30 (negative filtered)
+print(opts["retries"])  # 3 (positive, accepted)
 ```
 
 ## Access Patterns
@@ -251,13 +252,12 @@ print(opts.retries)  # 3 (positive, accepted)
 ```python
 opts = SmartOptions({'a': 1, 'b': 2})
 
-# Attribute access
-print(opts.a)        # 1
-print(opts.missing)  # None (no error)
+# Path notation (primary)
+print(opts["a"])        # 1
+print(opts["missing"])  # None (no error)
 
-# Bracket access
-print(opts['a'])     # 1
-print(opts['x'])     # None
+# Nested path access
+print(opts["x.y.z"])    # None (missing path)
 
 # Containment
 print('a' in opts)   # True
@@ -302,9 +302,9 @@ def serve(
     #     SmartOptions(serve, sys.argv[1:])        # 4. CLI args (highest)
     # )
 
-    print(f"Starting server at {config.host}:{config.port}")
-    print(f"App: {config.app_dir}, Workers: {config.workers}")
-    if config.debug:
+    print(f"Starting server at {config['host']}:{config['port']}")
+    print(f"App: {config['app_dir']}, Workers: {config['workers']}")
+    if config["debug"]:
         print("Debug mode enabled")
 
 if __name__ == '__main__':
@@ -342,9 +342,9 @@ MYAPP_WORKERS=16 ./app.py /path/to/app
 ## API Reference
 
 ```python
-class SmartOptions(SimpleNamespace):
+class SmartOptions(TreeDict):
     """
-    Convenience namespace for option management.
+    Convenience namespace for option management, built on TreeDict.
 
     Args:
         incoming: One of:
@@ -375,7 +375,7 @@ class SmartOptions(SimpleNamespace):
     Operators:
         +: Merge two SmartOptions (right side wins)
         in: Check key existence
-        []: Bracket access (returns None for missing)
+        []: Path notation access (returns None for missing)
     """
 
     def as_dict(self) -> dict[str, Any]:

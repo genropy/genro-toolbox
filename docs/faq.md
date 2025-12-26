@@ -22,9 +22,11 @@ Python 3.10 and later. We use modern type hints (`|` union syntax, `dict[str, An
 ### Why use SmartOptions instead of a plain dict?
 
 SmartOptions provides:
-- Attribute access (`opts.timeout` instead of `opts["timeout"]`)
+- Path notation access (`opts["server.host"]` for nested values)
 - Automatic merging of defaults with runtime values
 - Filtering of `None` and empty values
+- Loading from files (YAML, JSON, TOML, INI)
+- Loading from environment variables and CLI args
 - Immutable copy via `as_dict()`
 
 ### What counts as "empty" when using ignore_empty=True?
@@ -37,9 +39,9 @@ Yes. SmartOptions is mutable:
 
 ```python
 opts = SmartOptions({"timeout": 10}, {})
-opts.timeout = 20       # Set
-opts.new_key = "value"  # Add
-del opts.timeout        # Delete
+opts["timeout"] = 20       # Set
+opts["new_key"] = "value"  # Add
+del opts["timeout"]        # Delete
 ```
 
 ## extract_kwargs

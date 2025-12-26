@@ -7,7 +7,7 @@ Evaluates boolean expressions against a set of tags using a recursive
 descent parser. No eval() is used - direct evaluation during parsing.
 
 Operators:
-    - ``,`` or ``|`` or ``or`` : OR
+    - ``|`` or ``or`` : OR
     - ``&`` or ``and`` : AND
     - ``!`` or ``not`` : NOT (prefix)
     - ``()`` : grouping
@@ -22,8 +22,7 @@ Examples::
     tags_match("admin", {"admin", "user"})  # True
     tags_match("admin", {"user"})  # False
 
-    # OR (comma, pipe, or keyword)
-    tags_match("admin,public", {"public"})  # True
+    # OR (pipe or keyword)
     tags_match("admin|public", {"admin"})  # True
     tags_match("admin or public", {"admin"})  # True
 
@@ -47,11 +46,11 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["tags_match", "TagExpressionError"]
+__all__ = ["tags_match", "RuleError"]
 
 
-class TagExpressionError(ValueError):
-    """Raised when a tag expression is invalid."""
+class RuleError(ValueError):
+    """Raised when a rule expression is invalid."""
 
     pass
 
@@ -75,12 +74,12 @@ def tags_match(
         True if the expression matches the given values.
 
     Raises:
-        TagExpressionError: If the rule is invalid or exceeds limits.
+        RuleError: If the rule is invalid or exceeds limits.
 
     Grammar::
 
         expr     := or_expr
-        or_expr  := and_expr (('|' | ',' | 'or') and_expr)*
+        or_expr  := and_expr (('|' | 'or') and_expr)*
         and_expr := not_expr (('&' | 'and') not_expr)*
         not_expr := ('!' | 'not') not_expr | primary
         primary  := '(' expr ')' | TAG
@@ -90,9 +89,7 @@ def tags_match(
         return True
 
     if len(rule) > max_length:
-        raise TagExpressionError(
-            f"Tag rule too long: {len(rule)} chars (max {max_length})"
-        )
+        raise RuleError(f"Rule too long: {len(rule)} chars (max {max_length})")
 
     parser = _TagParser(rule, values, max_depth)
     return parser.parse()
@@ -113,7 +110,7 @@ class _TagParser:
             (?P<RPAREN>\))          |
             (?P<NOT>!)              |
             (?P<AND>&)              |
-            (?P<OR>[|,])            |
+            (?P<OR>\|)              |
             (?P<WORD>[a-zA-Z_]\w*)
         )
         """,
@@ -138,7 +135,7 @@ class _TagParser:
             if not match:
                 # Check if it's just whitespace at end
                 if self._rule[pos:].strip():
-                    raise TagExpressionError(
+                    raise RuleError(
                         f"Invalid character in tag rule at position {pos}: "
                         f"'{self._rule[pos]}'"
                     )
@@ -168,7 +165,7 @@ class _TagParser:
         # Check for remaining non-whitespace
         remaining = self._rule[pos:].strip()
         if remaining:
-            raise TagExpressionError(f"Invalid character in tag rule: '{remaining[0]}'")
+            raise RuleError(f"Invalid character in tag rule: '{remaining[0]}'")
 
     def _current(self) -> tuple[str, str] | None:
         """Get current token or None if exhausted."""
@@ -189,7 +186,7 @@ class _TagParser:
         if not token or token[0] != token_type:
             expected = token_type
             got = token[0] if token else "end of expression"
-            raise TagExpressionError(f"Expected {expected}, got {got} in: {self._rule}")
+            raise RuleError(f"Expected {expected}, got {got} in: {self._rule}")
         self._advance()
         return token[1]
 
@@ -203,14 +200,14 @@ class _TagParser:
         # Ensure all tokens consumed
         if self._current() is not None:
             token = self._current()
-            raise TagExpressionError(
+            raise RuleError(
                 f"Unexpected token '{token[1]}' in: {self._rule}"  # type: ignore[index]
             )
 
         return result
 
     def _parse_or(self) -> bool:
-        """Parse OR expression: and_expr (('|' | ',') and_expr)*"""
+        """Parse OR expression: and_expr ('|' and_expr)*"""
         left = self._parse_and()
 
         while True:
@@ -252,13 +249,13 @@ class _TagParser:
         token = self._current()
 
         if not token:
-            raise TagExpressionError(f"Unexpected end of expression: {self._rule}")
+            raise RuleError(f"Unexpected end of expression: {self._rule}")
 
         if token[0] == "LPAREN":
             self._advance()
             self._depth += 1
             if self._depth > self._max_depth:
-                raise TagExpressionError(
+                raise RuleError(
                     f"Tag rule too deeply nested (max {self._max_depth}): {self._rule}"
                 )
             result = self._parse_or()
@@ -270,4 +267,4 @@ class _TagParser:
             self._advance()
             return token[1] in self._values
 
-        raise TagExpressionError(f"Unexpected token '{token[1]}' in: {self._rule}")
+        raise RuleError(f"Unexpected token '{token[1]}' in: {self._rule}")

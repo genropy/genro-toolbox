@@ -3,90 +3,81 @@
 ## SmartOptions
 
 ```python
-class SmartOptions(SimpleNamespace):
+class SmartOptions(TreeDict):
     def __init__(
         self,
-        incoming: Mapping[str, Any] | None = None,
-        defaults: Mapping[str, Any] | None = None,
+        incoming: Mapping[str, Any] | str | Path | Callable[..., Any] | None = None,
+        defaults: Mapping[str, Any] | list[str] | None = None,
         *,
+        env: str | None = None,
+        argv: list[str] | None = None,
         ignore_none: bool = False,
         ignore_empty: bool = False,
         filter_fn: Callable[[str, Any], bool] | None = None,
     ): ...
 
     def as_dict(self) -> dict[str, Any]: ...
+    def __add__(self, other: SmartOptions | Mapping) -> SmartOptions: ...
 ```
 
 **Parameters**:
-- `incoming`: Runtime kwargs (override defaults)
-- `defaults`: Default values
+- `incoming`: One of:
+  - Mapping with runtime kwargs
+  - str path to config file (YAML, JSON, TOML, INI)
+  - str 'ENV:PREFIX' for environment variables
+  - Path object to config file
+  - Callable to extract defaults from signature
+- `defaults`: Mapping with default values, or argv list when incoming is callable (legacy)
+- `env`: Environment variable prefix (e.g., "MYAPP" for MYAPP_HOST)
+- `argv`: Command line arguments list
 - `ignore_none`: Skip `None` values from incoming
 - `ignore_empty`: Skip empty strings/collections from incoming
 - `filter_fn`: Custom filter `(key, value) -> bool`
 
 **Behavior**:
 - `incoming` values override `defaults`
-- Attribute access: `opts.key`
-- Mutable: `opts.key = value`, `del opts.key`
+- Path notation access: `opts["key"]`, `opts["server.host"]`
+- Mutable: `opts["key"] = value`, `del opts["key"]`
 - `as_dict()` returns copy
+- Merge with `+` operator: right side wins
+- Nested dicts become SmartOptions
+- String lists become feature flags
+- List of dicts indexed by first key value
 
 ---
 
-## MultiDefault
+## TreeDict
 
 ```python
-class MultiDefault(Mapping[str, Any]):
-    def __init__(
-        self,
-        *sources: Any,
-        skip_missing: bool = False,
-        types: dict[str, type] | None = None,
-    ): ...
+class TreeDict:
+    def __init__(self, data: dict[str, Any] | str | None = None) -> None: ...
 
-    def resolve(self) -> dict[str, Any]: ...
+    def __getitem__(self, path: str) -> Any: ...
+    def __setitem__(self, path: str, value: Any) -> None: ...
+    def __delitem__(self, path: str) -> None: ...
+    def __contains__(self, key: str) -> bool: ...
+    def __len__(self) -> int: ...
+    def __iter__(self) -> Iterator[str]: ...
 
-    @property
-    def sources(self) -> tuple[Any, ...]: ...
-    @property
-    def skip_missing(self) -> bool: ...
-    @property
-    def types(self) -> dict[str, type]: ...
+    def get(self, key: str, default: Any = None) -> Any: ...
+    def keys(self) -> Any: ...
+    def values(self) -> Any: ...
+    def items(self) -> Any: ...
+    def as_dict(self) -> dict[str, Any]: ...
+    def walk(self, expand_lists: bool = False) -> Iterator[tuple[str, Any]]: ...
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> TreeDict: ...
 ```
 
-**Parameters**:
-- `*sources`: Config sources (dict, file path, `"ENV:PREFIX"`, Path)
-- `skip_missing`: Ignore missing files (default: False)
-- `types`: Explicit type conversion map `{'key': int, ...}`
-
-**Supported sources**:
-- `dict`: Used directly, nested dicts flattened with `_`
-- `.ini`: ConfigParser format, **all values are strings**
-- `.json`: JSON format, types preserved
-- `.toml`: TOML format (Python 3.11+ or tomli), types preserved
-- `.yaml`: YAML format (pyyaml required), types preserved
-- `"ENV:PREFIX"`: Environment variables, **all values are strings**
-
-**Behavior**:
-- Later sources override earlier ones
-- Nested dicts flattened: `{'a': {'b': 1}}` → `{'a_b': 1}`
-- Implements `Mapping` protocol (usable as SmartOptions defaults)
-- `types` converts after loading: `{'port': int}` converts `"8000"` → `8000`
-
-**Type conversion for bool**:
-- `"true"`, `"yes"`, `"on"`, `"1"` → `True`
-- All other strings → `False`
-
-**Example**:
-```python
-defaults = MultiDefault(
-    {'host': 'localhost'},
-    'config.ini',
-    'ENV:MYAPP',
-    skip_missing=True,
-    types={'port': int, 'debug': bool}
-)
-opts = SmartOptions(incoming={'port': 9000}, defaults=defaults)
-```
+**Features**:
+- Path notation access: `td["a.b.c"]`
+- Auto-creates intermediate dicts on write
+- Returns None for missing keys
+- List access via #N syntax: `td["items.#0.id"]`
+- Thread-safe access via context manager: `with td: ...`
+- Async-safe access: `async with td: ...`
+- Supports JSON, YAML, TOML, INI file loading
 
 ---
 
@@ -200,6 +191,31 @@ Same data structure as `render_ascii_table`.
 
 ---
 
+## tags_match
+
+```python
+def tags_match(rule: str, values: set[str]) -> bool: ...
+```
+
+Match boolean expressions against a set of tags.
+
+**Operators**:
+- OR: `,`, `|`, `or`
+- AND: `&`, `and`
+- NOT: `!`, `not`
+- Parentheses for grouping
+
+**Examples**:
+```python
+tags_match("admin", {"admin", "user"})       # True
+tags_match("admin,public", {"public"})       # True (OR)
+tags_match("admin&internal", {"admin"})      # False (AND)
+tags_match("!admin", {"public"})             # True (NOT)
+tags_match("(admin|public)&!internal", {"admin"})  # True
+```
+
+---
+
 ## Helper Functions
 
 ### filtered_dict
@@ -209,19 +225,6 @@ def filtered_dict(
     data: Mapping[str, Any] | None,
     filter_fn: Callable[[str, Any], bool] | None = None,
 ) -> dict[str, Any]: ...
-```
-
-### make_opts
-
-```python
-def make_opts(
-    incoming: Mapping[str, Any] | None,
-    defaults: Mapping[str, Any] | None = None,
-    *,
-    filter_fn: Callable[[str, Any], bool] | None = None,
-    ignore_none: bool = False,
-    ignore_empty: bool = False,
-) -> SimpleNamespace: ...
 ```
 
 ### dictExtract

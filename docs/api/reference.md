@@ -53,106 +53,128 @@ See [extract_kwargs Guide](../user-guide/extract-kwargs.md) for detailed example
 ### Class Signature
 
 ```python
-class SmartOptions(SimpleNamespace):
+class SmartOptions(TreeDict):
     def __init__(
         self,
-        incoming: Optional[Mapping[str, Any]] = None,
-        defaults: Optional[Mapping[str, Any]] = None,
+        incoming: Mapping[str, Any] | str | Path | Callable[..., Any] | None = None,
+        defaults: Mapping[str, Any] | list[str] | None = None,
         *,
+        env: str | None = None,
+        argv: list[str] | None = None,
         ignore_none: bool = False,
         ignore_empty: bool = False,
-        filter_fn: Optional[Callable[[str, Any], bool]] = None,
+        filter_fn: Callable[[str, Any], bool] | None = None,
     )
 ```
 
 ### Parameters
 
-**incoming** : `Optional[Mapping[str, Any]]`
-: Mapping with runtime kwargs. Values override defaults after filtering. Can be None.
+**incoming** : `Mapping | str | Path | Callable | None`
+: One of:
+  - Mapping with runtime kwargs
+  - str path to config file (YAML, JSON, TOML, INI)
+  - str 'ENV:PREFIX' for environment variables
+  - Path object to config file
+  - Callable to extract defaults from signature
 
-**defaults** : `Optional[Mapping[str, Any]]`
-: Mapping with baseline options. Can be None.
+**defaults** : `Mapping | list[str] | None`
+: Mapping with baseline options, or argv list when incoming is callable (legacy).
+
+**env** : `str | None`
+: Environment variable prefix (e.g., "MYAPP" for MYAPP_HOST). Only used when incoming is callable.
+
+**argv** : `list[str] | None`
+: Command line arguments list. Only used when incoming is callable.
 
 **ignore_none** : `bool`
 : When True, skip incoming entries where the value is `None`. Default: False.
 
 **ignore_empty** : `bool`
 : When True, skip empty strings/collections from incoming entries. Default: False.
-  Empty values include: `""`, `[]`, `()`, `{}`, `set()`, etc.
 
-**filter_fn** : `Optional[Callable[[str, Any], bool]]`
+**filter_fn** : `Callable[[str, Any], bool] | None`
 : Optional custom filter function receiving `(key, value)` and returning True if the pair should be kept.
-  Applied before `ignore_none` and `ignore_empty`.
 
 ### Methods
 
-**as_dict() → Dict[str, Any]**
+**as_dict() → dict[str, Any]**
 : Return a copy of current options as a dictionary.
+
+**__add__(other) → SmartOptions**
+: Merge two SmartOptions (right side wins).
 
 ### Examples
 
 See [SmartOptions Guide](../user-guide/smart-options.md) for detailed examples.
 
-## MultiDefault
+## TreeDict
 
 ```{eval-rst}
-.. autoclass:: genro_toolbox.MultiDefault
+.. autoclass:: genro_toolbox.TreeDict
    :members:
-   :special-members: __init__
+   :special-members: __init__, __getitem__, __setitem__, __delitem__
 ```
 
 ### Class Signature
 
 ```python
-class MultiDefault(Mapping[str, Any]):
+class TreeDict:
     def __init__(
         self,
-        *sources: Any,
-        skip_missing: bool = False,
-        types: dict[str, type] | None = None,
+        data: dict[str, Any] | str | None = None,
     )
 ```
 
 ### Parameters
 
-**sources** : `Any`
-: Configuration sources. Can be:
-  - `dict`: Used directly (flattened if nested)
-  - `str` (file path): Load from file (`.ini`, `.json`, `.toml`, `.yaml`)
-  - `str` `"ENV:PREFIX"`: Load from environment variables with prefix
-  - `pathlib.Path`: Load from file
+**data** : `dict | str | None`
+: Initial data. Can be:
+  - dict: Used directly as underlying data
+  - str: Parsed as JSON
+  - None: Empty TreeDict
 
-**skip_missing** : `bool`
-: When True, silently skip missing files instead of raising `FileNotFoundError`. Default: False.
+### Key Features
 
-**types** : `Optional[dict[str, type]]`
-: Dict mapping keys to types for explicit conversion. Values from `.ini` files and
-  environment variables are strings by default. Use this to convert them:
-  - `int`: Convert to integer
-  - `float`: Convert to float
-  - `bool`: Convert to boolean (`"true"`, `"yes"`, `"on"`, `"1"` → `True`)
-  - `str`: Keep as string (useful to prevent auto-conversion in JSON/TOML)
-
-### Properties
-
-**sources** : `tuple[Any, ...]`
-: Original source specifications.
-
-**skip_missing** : `bool`
-: Whether missing files are skipped.
-
-**types** : `dict[str, type]`
-: Type conversion map.
+- **Path string access**: `td["a.b.c"]` accesses nested keys
+- **Auto-creates intermediate dicts** on write
+- **Returns None for missing keys** (no KeyError)
+- **List access with #N syntax**: `td["items.#0.id"]`
+- **Thread-safe access** via context manager
+- **Async-safe access** via async context manager
 
 ### Methods
 
-**resolve() → dict[str, Any]**
-: Resolve all sources and return merged flat dictionary. Sources are processed
-  in order, with later sources overriding earlier ones.
+**as_dict() → dict[str, Any]**
+: Return underlying data as dict.
+
+**walk(expand_lists: bool = False) → Iterator[tuple[str, Any]]**
+: Iterate all paths and leaf values.
+
+**from_file(path: str | Path) → TreeDict** (classmethod)
+: Load from JSON, YAML, TOML, or INI file.
 
 ### Examples
 
-See [MultiDefault Guide](../user-guide/multi-default.md) for detailed examples.
+```python
+td = TreeDict({"user": {"name": "Alice"}})
+td["user.name"]           # "Alice"
+td["missing"]             # None
+td["settings.theme"] = "dark"  # auto-creates intermediate dicts
+
+# List access
+td = TreeDict({"items": [{"id": 1}, {"id": 2}]})
+td["items.#0.id"]         # 1
+
+# Thread-safe
+with td:
+    td["counter"] = td["counter"] + 1
+
+# Async-safe
+async with td:
+    td["counter"] = td["counter"] + 1
+```
+
+See [README](https://github.com/genropy/genro-toolbox) for more examples.
 
 ## safe_is_instance
 
@@ -279,7 +301,7 @@ def tags_match(
 
 ### Raises
 
-**TagExpressionError**
+**RuleError**
 : If the rule is invalid or exceeds limits.
 
 ### Operators
@@ -306,10 +328,10 @@ TAG      := [a-zA-Z_][a-zA-Z0-9_]* (excluding keywords)
 
 See [tags_match Guide](../user-guide/tags-match.md) for detailed examples.
 
-## TagExpressionError
+## RuleError
 
 ```{eval-rst}
-.. autoclass:: genro_toolbox.TagExpressionError
+.. autoclass:: genro_toolbox.RuleError
 ```
 
 Exception raised when a tag expression is invalid.
@@ -334,23 +356,6 @@ Return a dict filtered through `filter_fn`.
 - `filter_fn`: Optional filter callable `(key, value) → bool`
 
 **Returns**: Filtered dictionary
-
-### make_opts
-
-```python
-def make_opts(
-    incoming: Optional[Mapping[str, Any]],
-    defaults: Optional[Mapping[str, Any]] = None,
-    *,
-    filter_fn: Optional[Callable[[str, Any], bool]] = None,
-    ignore_none: bool = False,
-    ignore_empty: bool = False,
-) -> SimpleNamespace
-```
-
-Merge incoming kwargs with defaults and return a SimpleNamespace.
-
-Similar to `SmartOptions` but returns a plain `SimpleNamespace` without the `as_dict()` method.
 
 ## dictExtract (Internal)
 

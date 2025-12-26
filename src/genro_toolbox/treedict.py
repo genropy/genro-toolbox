@@ -13,16 +13,15 @@ from typing import Any, Iterator
 
 
 class TreeDict:
-    """A hierarchical dictionary supporting attribute and dot-path access.
+    """A hierarchical dictionary supporting dot-path access.
 
     TreeDict provides a simple way to work with nested dictionaries using
-    both attribute access (td.user.name) and path strings (td["user.name"]).
+    path strings (td["user.name"]).
 
     Features:
-        - Attribute access: td.a.b.c
         - Path string access: td["a.b.c"]
         - Auto-creates intermediate dicts on path write
-        - Returns None for missing keys (no AttributeError on read)
+        - Returns None for missing keys
         - List access via #N syntax: td["items.#0.id"]
         - Thread-safe access via context manager: with td: ...
         - Async-safe access via async context manager: async with td: ...
@@ -33,12 +32,12 @@ class TreeDict:
 
             # Sync (threading)
             with td:
-                td.a.b.c = 1
+                td["a.b.c"] = 1
                 val = td["x.y.z"]
 
             # Async (asyncio)
             async with td:
-                td.a.b.c = 1
+                td["a.b.c"] = 1
                 val = td["x.y.z"]
 
         The lock protects all operations within the with block.
@@ -46,12 +45,10 @@ class TreeDict:
 
     Example:
         >>> td = TreeDict({"user": {"name": "Alice"}})
-        >>> td.user.name
-        'Alice'
         >>> td["user.name"]
         'Alice'
         >>> td["settings.theme"] = "dark"
-        >>> td.settings.theme
+        >>> td["settings.theme"]
         'dark'
     """
 
@@ -260,28 +257,6 @@ class TreeDict:
             del current._data[key]
         else:
             raise KeyError(path)
-
-    def __getattr__(self, name: str) -> Any:
-        """Get attribute, returning None for missing keys."""
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return self._data.get(name)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        """Set attribute value."""
-        if name.startswith("_"):
-            object.__setattr__(self, name, value)
-        else:
-            self._data[name] = self._wrap(value)
-
-    def __delattr__(self, name: str) -> None:
-        """Delete attribute."""
-        if name.startswith("_"):
-            object.__delattr__(self, name)
-        elif name in self._data:
-            del self._data[name]
-        else:
-            raise AttributeError(name)
 
     def __getitem__(self, path: str) -> Any:
         """Get value by dot-separated path string."""

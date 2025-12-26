@@ -55,9 +55,9 @@ def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
 # Priority: defaults < env < argv
 config = SmartOptions(serve, env='MYAPP', argv=sys.argv[1:])
 
-config.host   # from env (MYAPP_HOST) or default
-config.port   # int from env (MYAPP_PORT) or argv
-config.debug  # True if --debug passed
+config["host"]   # from env (MYAPP_HOST) or default
+config["port"]   # int from env (MYAPP_PORT) or argv
+config["debug"]  # True if --debug passed
 ```
 
 Compose with `+` for file configs:
@@ -73,9 +73,9 @@ Load from files (YAML, JSON, TOML, INI):
 
 ```python
 opts = SmartOptions('config.yaml')
-opts.server.host  # nested dicts become SmartOptions
-opts.middleware.cors  # string lists become feature flags (True)
-opts.apps.shop.module  # list of dicts indexed by first key
+opts["server.host"]  # nested dicts become SmartOptions
+opts["middleware.cors"]  # string lists become feature flags (True)
+opts["apps.shop.module"]  # list of dicts indexed by first key
 ```
 
 Basic merge with filtering:
@@ -88,13 +88,13 @@ opts = SmartOptions(
     ignore_empty=True,
 )
 
-opts.timeout   # 30 (runtime wins)
-opts.retries   # 3 (from defaults)
+opts["timeout"]   # 30 (runtime wins)
+opts["retries"]   # 3 (from defaults)
 ```
 
 ### TreeDict
 
-Hierarchical dictionary with dot notation and path access:
+Hierarchical dictionary with path access:
 
 ```python
 from genro_toolbox import TreeDict
@@ -108,18 +108,14 @@ td = TreeDict('{"user": {"name": "Alice"}}')
 # Or from config file (JSON, YAML, TOML, INI)
 td = TreeDict.from_file("config.yaml")
 
-# Attribute access
-td.user.name           # "Alice"
-td.user.prefs.theme    # "dark"
-td.missing             # None (no AttributeError)
-
 # Path string access
 td["user.name"]        # "Alice"
 td["user.prefs.theme"] # "dark"
+td["missing"]          # None (no KeyError)
 
 # Auto-create intermediate dicts on write
 td["settings.db.host"] = "localhost"
-td.settings.db.host    # "localhost"
+td["settings.db.host"] # "localhost"
 
 # List access with #N syntax
 td = TreeDict({"users": [{"name": "Alice"}, {"name": "Bob"}]})
@@ -134,11 +130,11 @@ for path, value in td.walk():
 
 # Thread-safe access (sync)
 with td:
-    td.counter = td.counter + 1
+    td["counter"] = td["counter"] + 1
 
 # Async-safe access
 async with td:
-    td.counter = td.counter + 1
+    td["counter"] = td["counter"] + 1
 
 # Convert back to dict
 td.as_dict()  # {"user": {"name": "Alice", ...}}

@@ -28,7 +28,7 @@ pip install -e ".[dev]"
 ```python
 import genro_toolbox
 print(genro_toolbox.__version__)
-# Output: 0.1.0
+# Output: 0.3.0
 
 from genro_toolbox import extract_kwargs
 print(extract_kwargs.__doc__)

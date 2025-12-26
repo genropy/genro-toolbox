@@ -6,8 +6,9 @@ Provides utilities for dict manipulation used across the library.
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
+
+from .treedict import TreeDict
 
 
 def filtered_dict(
@@ -27,29 +28,6 @@ def filtered_dict(
     if filter_fn is None:
         return dict(data)
     return {k: v for k, v in data.items() if filter_fn(k, v)}
-
-
-def make_opts(
-    incoming: Mapping[str, Any] | None,
-    defaults: Mapping[str, Any] | None = None,
-    *,
-    filter_fn: Callable[[str, Any], bool] | None = None,
-    ignore_none: bool = False,
-    ignore_empty: bool = False,
-) -> SimpleNamespace:
-    """
-    Merge ``incoming`` kwargs with ``defaults`` and return a SimpleNamespace.
-
-    ``incoming`` values override defaults after optional filtering steps.
-    """
-    merged_dict = _merge_kwargs(
-        incoming,
-        defaults,
-        filter_fn=filter_fn,
-        ignore_none=ignore_none,
-        ignore_empty=ignore_empty,
-    )
-    return SimpleNamespace(**merged_dict)
 
 
 def _merge_kwargs(
@@ -292,9 +270,9 @@ def _index_list_of_dicts(items: list[dict[str, Any]]) -> "SmartOptions":
     return SmartOptions(indexed)
 
 
-class SmartOptions(SimpleNamespace):
+class SmartOptions(TreeDict):
     """
-    Convenience namespace for option management.
+    Convenience namespace for option management, built on TreeDict.
 
     Args:
         incoming: Mapping with runtime kwargs, or a file path (str/Path) to load,
@@ -316,6 +294,10 @@ class SmartOptions(SimpleNamespace):
         - env values override defaults (with type conversion)
         - argv values override env (with type conversion)
         Priority: defaults < env < argv
+
+    Inherits from TreeDict:
+        - Path notation access: opts["a.b.c"]
+        - Context managers for thread/async safety
     """
 
     def __init__(
@@ -374,55 +356,46 @@ class SmartOptions(SimpleNamespace):
             ignore_empty=ignore_empty,
         )
 
-        # Wrap nested dicts recursively
+        # Wrap nested dicts recursively (SmartOptions-specific wrapping)
         merged = _wrap_nested_dicts(merged)
 
-        object.__setattr__(self, "_data", dict(merged))
-        super().__init__(**merged)
+        # Initialize TreeDict with the merged data
+        super().__init__(merged)
 
-    def as_dict(self) -> dict[str, Any]:
-        """Return a copy of current options."""
-        return dict(self._data)
+    def _wrap(self, value: Any) -> Any:
+        """Override to wrap nested dicts as SmartOptions instead of TreeDict.
 
-    def __setattr__(self, key: str, value: Any):
-        if key == "_data":
-            object.__setattr__(self, key, value)
-            return
-        self._data[key] = value
-        super().__setattr__(key, value)
-
-    def __delattr__(self, key: str):
-        if key == "_data":
-            raise AttributeError("_data attribute cannot be removed")
-        self._data.pop(key, None)
-        super().__delattr__(key)
+        SmartOptions values are already wrapped by _wrap_nested_dicts,
+        so we just return them as-is.
+        """
+        if isinstance(value, SmartOptions):
+            # Already a SmartOptions, return as-is
+            return value
+        if isinstance(value, TreeDict):
+            # Share the same _data reference, but as SmartOptions
+            new_opts = SmartOptions.__new__(SmartOptions)
+            object.__setattr__(new_opts, "_data", value._data)
+            object.__setattr__(new_opts, "_lock", self._lock)
+            object.__setattr__(new_opts, "_async_lock", None)
+            return new_opts
+        if isinstance(value, dict):
+            return SmartOptions(value)
+        return value
 
     def __add__(self, other: "SmartOptions | Mapping[str, Any]") -> "SmartOptions":
         """Merge two SmartOptions. Right side overrides left side."""
         if isinstance(other, SmartOptions):
             other_data = other._data
+        elif isinstance(other, TreeDict):
+            other_data = other._data
         else:
             other_data = dict(other)
-        merged = self._data | other_data
+        merged = self.as_dict() | other_data
         return SmartOptions(merged)
 
-    def __contains__(self, key: str) -> bool:
-        """Check if key exists."""
-        return key in self._data
-
-    def __iter__(self):
-        """Iterate over keys."""
-        return iter(self._data)
-
-    def __getattr__(self, key: str) -> Any:
-        """Return None for missing keys instead of raising AttributeError."""
-        if key.startswith("_"):
-            raise AttributeError(key)
-        return self._data.get(key)
-
-    def __getitem__(self, key: str) -> Any:
-        """Access by key with bracket notation."""
-        return self._data.get(key)
+    def __repr__(self) -> str:
+        """Return string representation."""
+        return f"SmartOptions({self.as_dict()})"
 
 
 def dictExtract(mydict, prefix, pop=False, slice_prefix=True, is_list=False):

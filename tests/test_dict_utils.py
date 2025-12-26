@@ -2,7 +2,7 @@
 
 import pytest
 from genro_toolbox import SmartOptions
-from genro_toolbox.dict_utils import filtered_dict, make_opts
+from genro_toolbox.dict_utils import filtered_dict
 
 
 class TestFilteredDict:
@@ -23,52 +23,13 @@ class TestFilteredDict:
         assert filtered_dict(None) == {}
 
 
-class TestMakeOpts:
-    """Tests for make_opts helper."""
-
-    def test_merges_defaults_and_incoming(self):
-        opts = make_opts({"timeout": 10}, {"timeout": 5, "retries": 3})
-        assert opts.timeout == 10
-        assert opts.retries == 3
-
-    def test_respects_filter_function(self):
-        opts = make_opts(
-            {"timeout": None, "retries": 5},
-            {"timeout": 2, "retries": 1},
-            filter_fn=lambda _, value: value is not None,
-        )
-        assert opts.timeout == 2  # None filtered, default preserved
-        assert opts.retries == 5
-
-    def test_ignore_none_flag(self):
-        opts = make_opts(
-            {"timeout": None},
-            {"timeout": 15},
-            ignore_none=True,
-        )
-        assert opts.timeout == 15
-
-    def test_ignore_empty_flag(self):
-        opts = make_opts(
-            {"tag": "", "labels": []},
-            {"tag": "default", "labels": ["x"]},
-            ignore_empty=True,
-        )
-        assert opts.tag == "default"
-        assert opts.labels == ["x"]
-
-    def test_accepts_missing_mappings(self):
-        opts = make_opts(None, None)
-        assert vars(opts) == {}
-
-
 class TestSmartOptions:
     """Tests for SmartOptions helper class."""
 
     def test_basic_merge(self):
         opts = SmartOptions({"timeout": 5}, {"timeout": 1, "retries": 3})
-        assert opts.timeout == 5
-        assert opts.retries == 3
+        assert opts["timeout"] == 5
+        assert opts["retries"] == 3
 
     def test_ignore_flags(self):
         opts = SmartOptions(
@@ -77,57 +38,38 @@ class TestSmartOptions:
             ignore_none=True,
             ignore_empty=True,
         )
-        assert opts.timeout == 10
+        assert opts["timeout"] == 10
         # String lists become SmartOptions with True values
-        assert isinstance(opts.tags, SmartOptions)
-        assert opts.tags.default is True
+        assert isinstance(opts["tags"], SmartOptions)
+        assert opts["tags.default"] is True
 
     def test_as_dict_returns_copy(self):
         opts = SmartOptions({"timeout": 2}, {})
         result = opts.as_dict()
         assert result == {"timeout": 2}
         result["timeout"] = 99
-        assert opts.timeout == 2  # original not mutated
+        assert opts["timeout"] == 2  # original not mutated
 
     def test_attribute_updates_are_tracked(self):
         opts = SmartOptions({"timeout": 2}, {})
-        opts.timeout = 7
+        opts["timeout"] = 7
         assert opts.as_dict()["timeout"] == 7
-        opts.new_flag = True
+        opts["new_flag"] = True
         assert opts.as_dict()["new_flag"] is True
-        del opts.timeout
+        del opts["timeout"]
         assert "timeout" not in opts.as_dict()
-
-    def test_setting_data_attribute(self):
-        """Test that setting _data attribute works correctly."""
-        opts = SmartOptions({"x": 1}, {})
-
-        # This should work without issues
-        opts._data = {"y": 2}
-
-        # Verify it was set
-        assert hasattr(opts, "_data")
-        assert opts._data == {"y": 2}
-
-    def test_deleting_data_attribute_raises_error(self):
-        """Test that deleting _data attribute raises AttributeError."""
-        opts = SmartOptions({"x": 1}, {})
-
-        # Attempting to delete _data should raise AttributeError
-        with pytest.raises(AttributeError, match="_data attribute cannot be removed"):
-            del opts._data
 
     def test_is_empty_with_non_sequence(self):
         """Test _is_empty helper with non-sequence values."""
         # Test with None value (should not be filtered as empty)
-        opts = make_opts({"x": None}, {}, ignore_empty=True)
-        assert hasattr(opts, "x")  # None is not considered empty
-        assert opts.x is None
+        opts = SmartOptions({"x": None}, {}, ignore_empty=True)
+        assert "x" in opts  # None is not considered empty
+        assert opts["x"] is None
 
         # Test with numeric value (should not be filtered)
-        opts = make_opts({"x": 0}, {}, ignore_empty=True)
-        assert hasattr(opts, "x")  # 0 is not considered empty
-        assert opts.x == 0
+        opts = SmartOptions({"x": 0}, {}, ignore_empty=True)
+        assert "x" in opts  # 0 is not considered empty
+        assert opts["x"] == 0
 
     def test_contains_operator(self):
         """Test 'in' operator for key existence."""
@@ -143,11 +85,11 @@ class TestSmartOptions:
         assert set(keys) == {"a", "b", "c"}
 
     def test_getattr_returns_none_for_missing(self):
-        """Test that missing keys return None instead of raising."""
+        """Test that missing keys return None via bracket access."""
         opts = SmartOptions({"a": 1})
-        assert opts.a == 1
-        assert opts.missing is None
-        assert opts.another_missing is None
+        assert opts["a"] == 1
+        assert opts["missing"] is None
+        assert opts["another_missing"] is None
 
     def test_getitem_bracket_access(self):
         """Test bracket notation access."""
@@ -159,23 +101,23 @@ class TestSmartOptions:
     def test_nested_dict_becomes_smartoptions(self):
         """Test that nested dicts are wrapped in SmartOptions."""
         opts = SmartOptions({"server": {"host": "localhost", "port": 8080}})
-        assert isinstance(opts.server, SmartOptions)
-        assert opts.server.host == "localhost"
-        assert opts.server.port == 8080
+        assert isinstance(opts["server"], SmartOptions)
+        assert opts["server.host"] == "localhost"
+        assert opts["server.port"] == 8080
 
     def test_string_list_becomes_feature_flags(self):
         """Test that string lists become SmartOptions with True values."""
         opts = SmartOptions({"middleware": ["cors", "compression", "logging"]})
-        assert isinstance(opts.middleware, SmartOptions)
-        assert opts.middleware.cors is True
-        assert opts.middleware.compression is True
-        assert opts.middleware.logging is True
-        assert opts.middleware.missing is None
+        assert isinstance(opts["middleware"], SmartOptions)
+        assert opts["middleware.cors"] is True
+        assert opts["middleware.compression"] is True
+        assert opts["middleware.logging"] is True
+        assert opts["middleware.missing"] is None
         # Test iteration
-        assert set(opts.middleware) == {"cors", "compression", "logging"}
+        assert set(opts["middleware"]) == {"cors", "compression", "logging"}
         # Test 'in' operator
-        assert "cors" in opts.middleware
-        assert "unknown" not in opts.middleware
+        assert "cors" in opts["middleware"]
+        assert "unknown" not in opts["middleware"]
 
     def test_list_of_dicts_indexed_by_first_key(self):
         """Test that list of dicts is indexed by first key value."""
@@ -187,29 +129,29 @@ class TestSmartOptions:
                 ]
             }
         )
-        assert isinstance(opts.apps, SmartOptions)
+        assert isinstance(opts["apps"], SmartOptions)
         # Access by first key value
-        assert opts.apps.shop.module == "shop:ShopApp"
-        assert opts.apps.office.module == "office:OfficeApp"
+        assert opts["apps.shop.module"] == "shop:ShopApp"
+        assert opts["apps.office.module"] == "office:OfficeApp"
         # Original name is preserved
-        assert opts.apps.shop.name == "shop"
+        assert opts["apps.shop.name"] == "shop"
         # Iteration over keys
-        assert set(opts.apps) == {"shop", "office"}
+        assert set(opts["apps"]) == {"shop", "office"}
         # 'in' operator
-        assert "shop" in opts.apps
-        assert "unknown" not in opts.apps
+        assert "shop" in opts["apps"]
+        assert "unknown" not in opts["apps"]
         # Bracket access
-        assert opts.apps["shop"].module == "shop:ShopApp"
+        assert opts["apps.shop.module"] == "shop:ShopApp"
 
     def test_mixed_list_unchanged(self):
         """Test that mixed lists are left unchanged."""
         opts = SmartOptions({"items": [1, "two", 3.0]})
-        assert opts.items == [1, "two", 3.0]
+        assert opts["items"] == [1, "two", 3.0]
 
     def test_empty_list_unchanged(self):
         """Test that empty lists are left unchanged."""
         opts = SmartOptions({"items": []})
-        assert opts.items == []
+        assert opts["items"] == []
 
 
 class TestSmartOptionsFromCallable:
@@ -222,9 +164,9 @@ class TestSmartOptionsFromCallable:
             pass
 
         opts = SmartOptions(my_func)
-        assert opts.port == 8000
-        assert opts.debug is False
-        assert opts.name is None  # No default, not in argv
+        assert opts["port"] == 8000
+        assert opts["debug"] is False
+        assert opts["name"] is None  # No default, not in argv
 
     def test_parses_argv_positional(self):
         """Test parsing positional arguments from argv."""
@@ -233,8 +175,8 @@ class TestSmartOptionsFromCallable:
             pass
 
         opts = SmartOptions(my_func, ["myapp"])
-        assert opts.name == "myapp"
-        assert opts.port == 8000
+        assert opts["name"] == "myapp"
+        assert opts["port"] == 8000
 
     def test_parses_argv_named(self):
         """Test parsing named arguments from argv."""
@@ -243,9 +185,9 @@ class TestSmartOptionsFromCallable:
             pass
 
         opts = SmartOptions(my_func, ["myapp", "--port", "9000"])
-        assert opts.name == "myapp"
-        assert opts.port == 9000
-        assert opts.debug is False
+        assert opts["name"] == "myapp"
+        assert opts["port"] == 9000
+        assert opts["debug"] is False
 
     def test_parses_argv_boolean_flag(self):
         """Test parsing boolean flags from argv."""
@@ -254,8 +196,8 @@ class TestSmartOptionsFromCallable:
             pass
 
         opts = SmartOptions(my_func, ["myapp", "--debug"])
-        assert opts.name == "myapp"
-        assert opts.debug is True
+        assert opts["name"] == "myapp"
+        assert opts["debug"] is True
 
     def test_handles_annotated_types(self):
         """Test handling of Annotated type hints."""
@@ -268,8 +210,8 @@ class TestSmartOptionsFromCallable:
             pass
 
         opts = SmartOptions(my_func, ["/path/to/app", "--port", "9000"])
-        assert opts.app_dir == "/path/to/app"
-        assert opts.port == 9000
+        assert opts["app_dir"] == "/path/to/app"
+        assert opts["port"] == 9000
 
 
 class TestSmartOptionsFromEnv:
@@ -282,9 +224,9 @@ class TestSmartOptionsFromEnv:
         monkeypatch.setenv("OTHER_VAR", "ignored")
 
         opts = SmartOptions("ENV:MYAPP")
-        assert opts.host == "0.0.0.0"
-        assert opts.port == "9000"  # Note: stays as string from env
-        assert opts.other_var is None
+        assert opts["host"] == "0.0.0.0"
+        assert opts["port"] == "9000"  # Note: stays as string from env
+        assert opts["other_var"] is None
 
     def test_env_with_callable_converts_types(self, monkeypatch):
         """Test that env values are converted using callable signature types."""
@@ -296,9 +238,9 @@ class TestSmartOptionsFromEnv:
             pass
 
         opts = SmartOptions(my_func, env="MYAPP")
-        assert opts.host == "0.0.0.0"
-        assert opts.port == 9000  # Converted to int!
-        assert opts.debug is True  # Converted to bool!
+        assert opts["host"] == "0.0.0.0"
+        assert opts["port"] == 9000  # Converted to int!
+        assert opts["debug"] is True  # Converted to bool!
 
     def test_env_with_callable_accepts_env_prefix(self, monkeypatch):
         """Test that env parameter accepts both 'PREFIX' and 'ENV:PREFIX'."""
@@ -309,11 +251,11 @@ class TestSmartOptionsFromEnv:
 
         # With ENV: prefix
         opts1 = SmartOptions(my_func, env="ENV:MYAPP")
-        assert opts1.port == 9000
+        assert opts1["port"] == 9000
 
         # Without ENV: prefix
         opts2 = SmartOptions(my_func, env="MYAPP")
-        assert opts2.port == 9000
+        assert opts2["port"] == 9000
 
     def test_env_bool_conversion_variants(self, monkeypatch):
         """Test various boolean string representations."""
@@ -324,12 +266,12 @@ class TestSmartOptionsFromEnv:
         for true_value in ["true", "True", "TRUE", "1", "yes", "YES", "on", "ON"]:
             monkeypatch.setenv("TEST_FLAG", true_value)
             opts = SmartOptions(my_func, env="TEST")
-            assert opts.flag is True, f"Expected True for '{true_value}'"
+            assert opts["flag"] is True, f"Expected True for '{true_value}'"
 
         for false_value in ["false", "False", "0", "no", "off", ""]:
             monkeypatch.setenv("TEST_FLAG", false_value)
             opts = SmartOptions(my_func, env="TEST")
-            assert opts.flag is False, f"Expected False for '{false_value}'"
+            assert opts["flag"] is False, f"Expected False for '{false_value}'"
 
 
 class TestSmartOptionsEnvArgvCombined:
@@ -344,9 +286,9 @@ class TestSmartOptionsEnvArgvCombined:
             pass
 
         opts = SmartOptions(my_func, env="MYAPP", argv=["--port", "3000", "--debug"])
-        assert opts.host == "fromenv"  # From env
-        assert opts.port == 3000  # From argv (overrides env)
-        assert opts.debug is True  # From argv
+        assert opts["host"] == "fromenv"  # From env
+        assert opts["port"] == 3000  # From argv (overrides env)
+        assert opts["debug"] is True  # From argv
 
     def test_priority_defaults_env_argv(self, monkeypatch):
         """Test priority: defaults < env < argv."""
@@ -362,10 +304,10 @@ class TestSmartOptionsEnvArgvCombined:
             pass
 
         opts = SmartOptions(my_func, env="MYAPP", argv=["--debug"])
-        assert opts.host == "fromenv"  # env overrides default
-        assert opts.port == 9000  # env overrides default
-        assert opts.timeout == 30  # default (not in env or argv)
-        assert opts.debug is True  # argv overrides default
+        assert opts["host"] == "fromenv"  # env overrides default
+        assert opts["port"] == 9000  # env overrides default
+        assert opts["timeout"] == 30  # default (not in env or argv)
+        assert opts["debug"] is True  # argv overrides default
 
     def test_only_argv_no_env(self):
         """Test using only argv without env."""
@@ -374,8 +316,8 @@ class TestSmartOptionsEnvArgvCombined:
             pass
 
         opts = SmartOptions(my_func, argv=["myapp", "--port", "9000"])
-        assert opts.name == "myapp"
-        assert opts.port == 9000
+        assert opts["name"] == "myapp"
+        assert opts["port"] == 9000
 
     def test_only_env_no_argv(self, monkeypatch):
         """Test using only env without argv."""
@@ -385,7 +327,7 @@ class TestSmartOptionsEnvArgvCombined:
             pass
 
         opts = SmartOptions(my_func, env="MYAPP")
-        assert opts.port == 9000
+        assert opts["port"] == 9000
 
     def test_legacy_api_still_works(self):
         """Test that legacy API (callable, argv_list) still works."""
@@ -395,8 +337,8 @@ class TestSmartOptionsEnvArgvCombined:
 
         # Legacy API: second positional arg is argv
         opts = SmartOptions(my_func, ["myapp", "--port", "9000"])
-        assert opts.name == "myapp"
-        assert opts.port == 9000
+        assert opts["name"] == "myapp"
+        assert opts["port"] == 9000
 
 
 class TestSmartOptionsAdd:
@@ -407,16 +349,16 @@ class TestSmartOptionsAdd:
         opts1 = SmartOptions({"a": 1, "b": 2})
         opts2 = SmartOptions({"b": 20, "c": 3})
         combined = opts1 + opts2
-        assert combined.a == 1
-        assert combined.b == 20  # Right side wins
-        assert combined.c == 3
+        assert combined["a"] == 1
+        assert combined["b"] == 20  # Right side wins
+        assert combined["c"] == 3
 
     def test_add_smartoptions_with_dict(self):
         """Test adding SmartOptions with a plain dict."""
         opts = SmartOptions({"a": 1})
         combined = opts + {"b": 2, "a": 10}
-        assert combined.a == 10  # Dict overrides
-        assert combined.b == 2
+        assert combined["a"] == 10  # Dict overrides
+        assert combined["b"] == 2
 
     def test_chain_multiple_adds(self):
         """Test chaining multiple additions."""
@@ -426,10 +368,10 @@ class TestSmartOptionsAdd:
         from_argv = SmartOptions({"debug": True})
 
         final = base + from_file + from_env + from_argv
-        assert final.host == "fromfile"  # from file
-        assert final.port == 9000  # from env
-        assert final.debug is True  # from argv
-        assert final.timeout == 30  # from file
+        assert final["host"] == "fromfile"  # from file
+        assert final["port"] == 9000  # from env
+        assert final["debug"] is True  # from argv
+        assert final["timeout"] == 30  # from file
 
     def test_add_returns_new_instance(self):
         """Test that add returns a new SmartOptions instance."""
@@ -452,8 +394,8 @@ class TestSmartOptionsFromFile:
         config_file.write_text("host: localhost\nport: 8080\n")
 
         opts = SmartOptions(str(config_file))
-        assert opts.host == "localhost"
-        assert opts.port == 8080
+        assert opts["host"] == "localhost"
+        assert opts["port"] == 8080
 
     def test_loads_json_file(self, tmp_path):
         """Test loading config from JSON file."""
@@ -461,8 +403,8 @@ class TestSmartOptionsFromFile:
         config_file.write_text('{"host": "localhost", "port": 8080}')
 
         opts = SmartOptions(str(config_file))
-        assert opts.host == "localhost"
-        assert opts.port == 8080
+        assert opts["host"] == "localhost"
+        assert opts["port"] == 8080
 
     def test_loads_yaml_with_nested(self, tmp_path):
         """Test loading YAML with nested structures."""
@@ -484,10 +426,10 @@ apps:
         )
 
         opts = SmartOptions(str(config_file))
-        assert opts.server.host == "localhost"
-        assert opts.server.port == 8080
-        assert opts.middleware.cors is True
-        assert opts.apps.shop.module == "shop:ShopApp"
+        assert opts["server.host"] == "localhost"
+        assert opts["server.port"] == 8080
+        assert opts["middleware.cors"] is True
+        assert opts["apps.shop.module"] == "shop:ShopApp"
 
     def test_unsupported_format_raises(self, tmp_path):
         """Test that unsupported file format raises ValueError."""
@@ -503,8 +445,8 @@ apps:
         config_file.write_text('host = "localhost"\nport = 8080\n')
 
         opts = SmartOptions(str(config_file))
-        assert opts.host == "localhost"
-        assert opts.port == 8080
+        assert opts["host"] == "localhost"
+        assert opts["port"] == 8080
 
     def test_loads_ini_file(self, tmp_path):
         """Test loading config from INI file."""
@@ -512,8 +454,8 @@ apps:
         config_file.write_text("[server]\nhost = localhost\nport = 8080\n")
 
         opts = SmartOptions(str(config_file))
-        assert opts.server_host == "localhost"
-        assert opts.server_port == "8080"  # INI values are strings
+        assert opts["server_host"] == "localhost"
+        assert opts["server_port"] == "8080"  # INI values are strings
 
     def test_missing_file_returns_empty(self, tmp_path):
         """Test that missing file returns empty SmartOptions."""
@@ -529,14 +471,14 @@ apps:
         config_file.write_text("host: localhost\nport: 8080\n")
 
         opts = SmartOptions(Path(config_file))
-        assert opts.host == "localhost"
-        assert opts.port == 8080
+        assert opts["host"] == "localhost"
+        assert opts["port"] == 8080
 
     def test_empty_list_of_dicts(self):
         """Test handling of empty list of dicts."""
         opts = SmartOptions({"items": [{}]})
         # Empty dict has no keys, so nothing to index
-        assert isinstance(opts.items, SmartOptions)
+        assert isinstance(opts["items"], SmartOptions)
 
 
 class TestSmartOptionsEdgeCases:
@@ -556,9 +498,9 @@ class TestSmartOptionsEdgeCases:
 
         # --count 5 followed by --verbose (bool flag)
         opts = SmartOptions(my_func, ["myname", "--count", "5", "--verbose"])
-        assert opts.name == "myname"
-        assert opts.count == 5
-        assert opts.verbose is True
+        assert opts["name"] == "myname"
+        assert opts["count"] == 5
+        assert opts["verbose"] is True
 
     def test_argv_dash_conversion(self):
         """Test that --my-option becomes my_option."""
@@ -567,12 +509,12 @@ class TestSmartOptionsEdgeCases:
             pass
 
         opts = SmartOptions(my_func, ["--my-option", "value"])
-        assert opts.my_option == "value"
+        assert opts["my_option"] == "value"
 
     def test_mixed_list_kept_as_is(self):
         """Test that mixed lists (not all strings, not all dicts) are kept as-is."""
         opts = SmartOptions({"items": ["string", 123, {"key": "value"}]})
-        assert opts.items == ["string", 123, {"key": "value"}]
+        assert opts["items"] == ["string", 123, {"key": "value"}]
 
     def test_function_without_annotations(self):
         """Test function without type annotations."""
@@ -581,8 +523,8 @@ class TestSmartOptionsEdgeCases:
             pass
 
         opts = SmartOptions(my_func, ["myapp"])
-        assert opts.name == "myapp"
-        assert opts.port == 8000
+        assert opts["name"] == "myapp"
+        assert opts["port"] == 8000
 
     def test_get_type_hints_failure(self):
         """Test handling of get_type_hints failure (edge case)."""
@@ -594,7 +536,7 @@ class TestSmartOptionsEdgeCases:
 
         # Should not raise, just fall back to no types
         opts = SmartOptions(broken_func)
-        assert opts.x is None
+        assert opts["x"] is None
 
     def test_loads_json_file(self, tmp_path):
         """Test loading config from JSON file."""
@@ -602,8 +544,8 @@ class TestSmartOptionsEdgeCases:
         config_file.write_text('{"host": "localhost", "port": 8080}')
 
         opts = SmartOptions(str(config_file))
-        assert opts.host == "localhost"
-        assert opts.port == 8080
+        assert opts["host"] == "localhost"
+        assert opts["port"] == 8080
 
 
 class TestDictExtract:

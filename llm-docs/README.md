@@ -12,13 +12,14 @@ pip install genro-toolbox
 
 ```python
 from genro_toolbox import (
-    SmartOptions,           # Merge kwargs with defaults
-    MultiDefault,           # Load config from multiple sources
+    SmartOptions,           # Merge kwargs with defaults (built on TreeDict)
+    TreeDict,               # Hierarchical dict with path access
     extract_kwargs,         # Decorator: group kwargs by prefix
     safe_is_instance,       # isinstance() without import
     render_ascii_table,     # ASCII table rendering
     render_markdown_table,  # Markdown table rendering
     dictExtract,            # Extract dict subset by prefix
+    tags_match,             # Boolean expression matcher for tags
 )
 ```
 
@@ -33,30 +34,45 @@ opts = SmartOptions(
     ignore_none=True,
     ignore_empty=True,
 )
-opts.timeout   # 30 (runtime wins)
-opts.retries   # 3 (from defaults)
-opts.as_dict() # {"timeout": 30, "retries": 3}
+opts["timeout"]   # 30 (runtime wins)
+opts["retries"]   # 3 (from defaults)
+opts.as_dict()    # {"timeout": 30, "retries": 3}
 ```
 
-### MultiDefault
+### Load from multiple sources
 
 ```python
-from genro_toolbox import MultiDefault, SmartOptions
+import sys
 
-# Load from multiple sources (later overrides earlier)
-defaults = MultiDefault(
-    {'host': 'localhost', 'port': 8000},  # base
-    'config.ini',                          # file
-    'ENV:MYAPP',                           # env vars
-    skip_missing=True,
-    types={'port': int, 'debug': bool},    # explicit conversion
-)
+def serve(host: str = '127.0.0.1', port: int = 8000, debug: bool = False):
+    pass
 
-opts = SmartOptions(incoming={'port': 9000}, defaults=defaults)
-opts.port  # 9000 (int)
+# Priority: defaults < env < argv
+config = SmartOptions(serve, env='MYAPP', argv=sys.argv[1:])
+config["host"]   # from env (MYAPP_HOST) or default
+config["port"]   # int from env (MYAPP_PORT) or argv
+config["debug"]  # True if --debug passed
 ```
 
-**Supported sources**: dict, `.ini`, `.json`, `.toml`, `.yaml`, `ENV:PREFIX`
+### Compose with `+` operator
+
+```python
+config = (
+    SmartOptions('config.yaml') +      # file config
+    SmartOptions(serve, env='MYAPP', argv=sys.argv[1:])  # defaults < env < argv
+)
+```
+
+### TreeDict
+
+```python
+from genro_toolbox import TreeDict
+
+td = TreeDict({"user": {"name": "Alice", "prefs": {"theme": "dark"}}})
+td["user.name"]        # "Alice"
+td["user.prefs.theme"] # "dark"
+td["settings.db.host"] = "localhost"  # auto-creates intermediate dicts
+```
 
 ### extract_kwargs
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from genro_toolbox.tags_match import TagExpressionError, tags_match
+from genro_toolbox.tags_match import RuleError, tags_match
 
 
 class TestBasicMatching:
@@ -31,12 +31,7 @@ class TestBasicMatching:
 
 
 class TestOrOperator:
-    """Test OR operator (comma and pipe)."""
-
-    def test_or_with_comma(self):
-        assert tags_match("admin,public", {"admin"}) is True
-        assert tags_match("admin,public", {"public"}) is True
-        assert tags_match("admin,public", {"internal"}) is False
+    """Test OR operator (pipe)."""
 
     def test_or_with_pipe(self):
         assert tags_match("admin|public", {"admin"}) is True
@@ -44,9 +39,14 @@ class TestOrOperator:
         assert tags_match("admin|public", {"internal"}) is False
 
     def test_multiple_or(self):
-        assert tags_match("a,b,c", {"c"}) is True
         assert tags_match("a|b|c", {"a"}) is True
-        assert tags_match("a,b,c", {"d"}) is False
+        assert tags_match("a|b|c", {"c"}) is True
+        assert tags_match("a|b|c", {"d"}) is False
+
+    def test_comma_not_allowed(self):
+        """Comma is not allowed in rules - raises error."""
+        with pytest.raises(RuleError, match="Invalid character"):
+            tags_match("admin,public", {"admin"})
 
 
 class TestAndOperator:
@@ -164,31 +164,31 @@ class TestErrorHandling:
     """Test error handling."""
 
     def test_invalid_character(self):
-        with pytest.raises(TagExpressionError, match="Invalid character"):
+        with pytest.raises(RuleError, match="Invalid character"):
             tags_match("admin; drop table", {"admin"})
 
     def test_unmatched_parenthesis_open(self):
-        with pytest.raises(TagExpressionError):
+        with pytest.raises(RuleError):
             tags_match("(admin", {"admin"})
 
     def test_unmatched_parenthesis_close(self):
-        with pytest.raises(TagExpressionError):
+        with pytest.raises(RuleError):
             tags_match("admin)", {"admin"})
 
     def test_empty_parentheses(self):
-        with pytest.raises(TagExpressionError):
+        with pytest.raises(RuleError):
             tags_match("()", {"admin"})
 
     def test_double_operator(self):
-        with pytest.raises(TagExpressionError):
+        with pytest.raises(RuleError):
             tags_match("admin&&public", {"admin"})
 
     def test_operator_at_start(self):
-        with pytest.raises(TagExpressionError):
+        with pytest.raises(RuleError):
             tags_match("&admin", {"admin"})
 
     def test_operator_at_end(self):
-        with pytest.raises(TagExpressionError):
+        with pytest.raises(RuleError):
             tags_match("admin&", {"admin"})
 
 
@@ -197,22 +197,22 @@ class TestLimits:
 
     def test_max_length_exceeded(self):
         long_rule = "a" * 201
-        with pytest.raises(TagExpressionError, match="too long"):
+        with pytest.raises(RuleError, match="too long"):
             tags_match(long_rule, {"a"})
 
     def test_max_length_custom(self):
-        with pytest.raises(TagExpressionError, match="too long"):
+        with pytest.raises(RuleError, match="too long"):
             tags_match("admin", {"admin"}, max_length=3)
 
     def test_max_depth_exceeded(self):
         # 7 levels of nesting
         deep_rule = "(((((((" + "a" + ")))))))"
-        with pytest.raises(TagExpressionError, match="deeply nested"):
+        with pytest.raises(RuleError, match="deeply nested"):
             tags_match(deep_rule, {"a"})
 
     def test_max_depth_custom(self):
         rule = "((a))"  # 2 levels
-        with pytest.raises(TagExpressionError, match="deeply nested"):
+        with pytest.raises(RuleError, match="deeply nested"):
             tags_match(rule, {"a"}, max_depth=1)
 
     def test_max_depth_ok(self):
@@ -284,7 +284,7 @@ class TestKeywordOperators:
         # Keywords should not be usable as tag names
         # "and" is interpreted as operator, not tag
         # So "and" alone should fail (operator without operands)
-        with pytest.raises(TagExpressionError):
+        with pytest.raises(RuleError):
             tags_match("and", {"and"})
 
     def test_tag_starting_with_keyword(self):

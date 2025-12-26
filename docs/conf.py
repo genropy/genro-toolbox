@@ -11,8 +11,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 project = "Genro-Toolbox"
 copyright = "2025, Genropy Team"
 author = "Genropy Team"
-release = "0.1.0"
-version = "0.1"
+release = "0.3.0"
+version = "0.3"
 
 # General configuration
 extensions = [

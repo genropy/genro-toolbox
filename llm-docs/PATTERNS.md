@@ -7,8 +7,8 @@
 ```python
 # From test: test_dict_utils.py::TestSmartOptions::test_basic_merge
 opts = SmartOptions({"timeout": 5}, {"timeout": 1, "retries": 3})
-opts.timeout  # 5 (incoming wins)
-opts.retries  # 3 (from defaults)
+opts["timeout"]  # 5 (incoming wins)
+opts["retries"]  # 3 (from defaults)
 ```
 
 ### Ignore None and empty values
@@ -21,8 +21,8 @@ opts = SmartOptions(
     ignore_none=True,
     ignore_empty=True,
 )
-opts.timeout  # 10 (None ignored)
-opts.tags     # ["default"] (empty list ignored)
+opts["timeout"]      # 10 (None ignored)
+opts["tags.default"] # True (string list becomes feature flags)
 ```
 
 ### Mutable options
@@ -30,23 +30,34 @@ opts.tags     # ["default"] (empty list ignored)
 ```python
 # From test: test_dict_utils.py::TestSmartOptions::test_attribute_updates_are_tracked
 opts = SmartOptions({"timeout": 2}, {})
-opts.timeout = 7
-opts.new_flag = True
-del opts.timeout
+opts["timeout"] = 7
+opts["new_flag"] = True
+del opts["timeout"]
 opts.as_dict()  # {"new_flag": True}
 ```
 
 ### Custom filter function
 
 ```python
-# From test: test_dict_utils.py::TestMakeOpts::test_respects_filter_function
-opts = make_opts(
+# SmartOptions with custom filter
+opts = SmartOptions(
     {"timeout": None, "retries": 5},
     {"timeout": 2, "retries": 1},
     filter_fn=lambda _, value: value is not None,
 )
-opts.timeout  # 2 (None filtered)
-opts.retries  # 5
+opts["timeout"]  # 2 (None filtered)
+opts["retries"]  # 5
+```
+
+### Nested path access
+
+```python
+# SmartOptions supports dot-path notation
+opts = SmartOptions({
+    "server": {"host": "localhost", "port": 8080}
+})
+opts["server.host"]  # "localhost"
+opts["server.port"]  # 8080
 ```
 
 ---
