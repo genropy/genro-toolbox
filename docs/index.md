@@ -12,10 +12,10 @@ Genro-Toolbox is a lightweight, zero-dependency Python library providing core ut
 
 - **`extract_kwargs`** - Decorator for extracting and grouping keyword arguments by prefix
 - **`SmartOptions`** - Intelligent options merging with filtering and defaults
-- **`MultiDefault`** - Multi-source configuration loader (files, env vars, dicts)
+- **`TreeDict`** - Hierarchical dictionary with dot notation path access
+- **`tags_match`** - Boolean expression matcher for tag-based filtering
 - **`safe_is_instance`** - Type checking without imports
 - **`ascii_table`** - Beautiful ASCII and Markdown tables with formatting and hierarchies
-- **Three flexible styles** - Prefix style, dict style, and boolean activation
 - **Zero dependencies** - Pure Python standard library only (optional: tomli, pyyaml)
 - **Full type hints** - Complete typing support
 - **Python 3.10+** - Modern Python
@@ -54,7 +54,7 @@ user-guide/installation
 user-guide/quickstart
 user-guide/extract-kwargs
 user-guide/smart-options
-user-guide/multi-default
+user-guide/tags-match
 user-guide/safe-is-instance
 user-guide/ascii-table
 user-guide/best-practices
