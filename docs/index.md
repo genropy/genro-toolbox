@@ -54,6 +54,7 @@ user-guide/installation
 user-guide/quickstart
 user-guide/extract-kwargs
 user-guide/smart-options
+user-guide/treedict
 user-guide/tags-match
 user-guide/safe-is-instance
 user-guide/ascii-table
