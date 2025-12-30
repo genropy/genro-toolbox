@@ -12,6 +12,7 @@ from .typeutils import safe_is_instance
 from .ascii_table import render_ascii_table, render_markdown_table
 from .tags_match import tags_match, RuleError
 from .treedict import TreeDict
+from .uid import get_uuid
 
 __all__ = [
     "extract_kwargs",
@@ -23,4 +24,5 @@ __all__ = [
     "tags_match",
     "RuleError",
     "TreeDict",
+    "get_uuid",
 ]
