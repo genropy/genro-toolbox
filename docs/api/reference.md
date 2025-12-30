@@ -338,6 +338,122 @@ Exception raised when a tag expression is invalid.
 
 Inherits from `ValueError`.
 
+## get_uuid
+
+```{eval-rst}
+.. autofunction:: genro_toolbox.get_uuid
+```
+
+### Function Signature
+
+```python
+def get_uuid() -> str
+```
+
+### Returns
+
+**str**
+: 22-character sortable unique identifier.
+
+### Format
+
+The ID consists of:
+- `Z`: Version marker (distinguishes from legacy UUIDs, sorts after them)
+- 9 characters: microseconds since 2025-01-01 UTC (base62 encoded)
+- 12 characters: cryptographically secure random (base62 encoded)
+
+### Properties
+
+- Lexicographically sortable by creation time (UTC)
+- URL-safe (alphanumeric only)
+- 22 characters (compatible with legacy Genro ID columns)
+- Timestamp valid for ~440 years from 2025
+- Collision probability ~10^-19 for same microsecond
+
+### Examples
+
+```python
+from genro_toolbox import get_uuid
+
+uid = get_uuid()  # e.g., "Z00005KmLxHj7F9aGbCd3e"
+len(uid)          # 22
+uid[0]            # 'Z'
+uid.isalnum()     # True
+
+# IDs are sortable by time
+ids = [get_uuid() for _ in range(3)]
+sorted(ids) == ids  # True
+```
+
+## smartasync
+
+```{eval-rst}
+.. autofunction:: genro_toolbox.smartasync
+```
+
+### Function Signature
+
+```python
+def smartasync(method: Callable) -> Callable
+```
+
+### Parameters
+
+**method** : `Callable`
+: Method or function to decorate (async or sync).
+
+### Returns
+
+**Callable**
+: Wrapped function that works in both sync and async contexts.
+
+### How It Works
+
+Automatically detects the execution context and adapts:
+
+| Context | Method | Behavior |
+|---------|--------|----------|
+| Sync | Async | `asyncio.run()` |
+| Sync | Sync | Direct call |
+| Async | Async | Return coroutine (for await) |
+| Async | Sync | `asyncio.to_thread()` |
+
+### Features
+
+- Auto-detection of sync/async context using `asyncio.get_running_loop()`
+- Asymmetric caching: caches True (async), always checks False (sync)
+- Works with both class methods and standalone functions
+- Compatible with `__slots__` classes
+
+### Examples
+
+```python
+from genro_toolbox import smartasync
+
+class DataManager:
+    @smartasync
+    async def fetch_data(self, url: str):
+        async with httpx.AsyncClient() as client:
+            return await client.get(url).json()
+
+manager = DataManager()
+
+# Sync context - no await needed
+data = manager.fetch_data("https://api.example.com")
+
+# Async context - use await
+async def main():
+    data = await manager.fetch_data("https://api.example.com")
+```
+
+### Cache Reset
+
+For testing, you can reset the cache:
+
+```python
+manager.fetch_data._smartasync_reset_cache()
+```
+
 ## Helper Functions
 
 ### filtered_dict

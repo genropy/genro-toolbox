@@ -33,6 +33,8 @@ pip install genro-toolbox
 - **SmartOptions** - Multi-source config with merge via `+` operator
 - **TreeDict** - Hierarchical dict with dot notation and path access
 - **extract_kwargs** - Decorator to group kwargs by prefix
+- **get_uuid** - Sortable 22-char unique identifiers for distributed systems
+- **smartasync** - Unified sync/async API with automatic context detection
 - **safe_is_instance** - isinstance() without importing the class
 - **render_ascii_table** - ASCII table rendering with formatting
 - **render_markdown_table** - Markdown table rendering
@@ -219,6 +221,54 @@ tags_match("not admin", {"admin"})  # False
 # Complex expressions
 tags_match("(admin|public)&!internal", {"admin"})  # True
 tags_match("(admin or public) and not internal", {"admin", "internal"})  # False
+```
+
+### get_uuid
+
+```python
+from genro_toolbox import get_uuid
+
+# Generate sortable unique identifiers
+uid = get_uuid()  # e.g., "Z00005KmLxHj7F9aGbCd3e"
+
+len(uid)      # 22 characters
+uid[0]        # 'Z' (version marker, sorts after legacy UUIDs)
+uid.isalnum() # True (URL-safe)
+
+# IDs are lexicographically sortable by creation time
+ids = [get_uuid() for _ in range(3)]
+sorted(ids) == ids  # True (already sorted)
+```
+
+### smartasync
+
+```python
+from genro_toolbox import smartasync
+
+class DataManager:
+    @smartasync
+    async def fetch_data(self, url: str):
+        async with httpx.AsyncClient() as client:
+            return await client.get(url).json()
+
+manager = DataManager()
+
+# Sync context - no await needed!
+data = manager.fetch_data("https://api.example.com")
+
+# Async context - use await
+async def main():
+    data = await manager.fetch_data("https://api.example.com")
+
+# Also works with sync methods in async context (offloaded to thread)
+class LegacyProcessor:
+    @smartasync
+    def cpu_intensive(self, data):
+        return process(data)  # Blocking operation
+
+async def main():
+    proc = LegacyProcessor()
+    result = await proc.cpu_intensive(data)  # Won't block event loop
 ```
 
 ## Philosophy

@@ -14,6 +14,8 @@ Genro-Toolbox is a lightweight, zero-dependency Python library providing core ut
 - **`SmartOptions`** - Intelligent options merging with filtering and defaults
 - **`TreeDict`** - Hierarchical dictionary with dot notation path access
 - **`tags_match`** - Boolean expression matcher for tag-based filtering
+- **`get_uuid`** - Sortable 22-char unique identifiers for distributed systems
+- **`smartasync`** - Unified sync/async API decorator with automatic context detection
 - **`safe_is_instance`** - Type checking without imports
 - **`ascii_table`** - Beautiful ASCII and Markdown tables with formatting and hierarchies
 - **Zero dependencies** - Pure Python standard library only (optional: tomli, pyyaml)
