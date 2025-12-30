@@ -13,6 +13,7 @@ from .ascii_table import render_ascii_table, render_markdown_table
 from .tags_match import tags_match, RuleError
 from .treedict import TreeDict
 from .uid import get_uuid
+from .smartasync import smartasync
 
 __all__ = [
     "extract_kwargs",
@@ -25,4 +26,5 @@ __all__ = [
     "RuleError",
     "TreeDict",
     "get_uuid",
+    "smartasync",
 ]
