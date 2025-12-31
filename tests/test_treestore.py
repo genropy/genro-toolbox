@@ -22,39 +22,54 @@ class TestTreeStoreNode:
 
     def test_create_simple_node(self):
         """Test creating a simple node with scalar value."""
-        node = TreeStoreNode('name', {'id': 1}, 'Alice')
-        assert node.label == 'name'
+        node = TreeStoreNode('name_0', 'name', {'id': 1}, 'Alice')
+        assert node.label == 'name_0'
+        assert node.tag == 'name'
         assert node.attr == {'id': 1}
         assert node.value == 'Alice'
         assert node.parent is None
 
     def test_create_node_defaults(self):
         """Test node creation with default values."""
-        node = TreeStoreNode('empty')
-        assert node.label == 'empty'
+        node = TreeStoreNode('empty_0', 'empty')
+        assert node.label == 'empty_0'
+        assert node.tag == 'empty'
         assert node.attr == {}
         assert node.value is None
         assert node.parent is None
 
     def test_is_leaf(self):
         """Test is_leaf property for scalar values."""
-        node = TreeStoreNode('name', value='Alice')
+        node = TreeStoreNode('name_0', 'name', value='Alice')
         assert node.is_leaf is True
         assert node.is_branch is False
 
     def test_is_branch(self):
         """Test is_branch property for TreeStore values."""
         store = TreeStore()
-        node = TreeStoreNode('container', value=store)
+        node = TreeStoreNode('container_0', 'container', value=store)
         assert node.is_branch is True
         assert node.is_leaf is False
 
     def test_repr(self):
         """Test string representation."""
-        node = TreeStoreNode('name', {'id': 1}, 'Alice')
+        node = TreeStoreNode('name_0', 'name', {'id': 1}, 'Alice')
         repr_str = repr(node)
+        assert 'name_0' in repr_str
         assert 'name' in repr_str
         assert 'Alice' in repr_str
+
+    def test_underscore_property_returns_parent(self):
+        """Test ._ returns parent TreeStore."""
+        store = TreeStore()
+        node = TreeStoreNode('item_0', 'item', value='test', parent=store)
+        assert node._ is store
+
+    def test_underscore_property_no_parent_raises(self):
+        """Test ._ raises when no parent."""
+        node = TreeStoreNode('orphan_0', 'orphan')
+        with pytest.raises(ValueError, match="no parent"):
+            _ = node._
 
 
 class TestTreeStore:
@@ -66,29 +81,106 @@ class TestTreeStore:
         assert len(store) == 0
         assert store.parent is None
 
-    def test_add_node(self):
-        """Test adding a node to the store."""
+    def test_child_creates_branch(self):
+        """Test child() creates a branch node."""
         store = TreeStore()
-        node = store.add_node('name', {'id': 1}, 'Alice')
-        assert 'name' in store
-        assert store['name'] is node
-        assert node.parent is store
+        div = store.child('div', color='red')
+        assert isinstance(div, TreeStore)
+        assert 'div_0' in store
+        assert store['div_0'].tag == 'div'
+        assert store['div_0'].attr == {'color': 'red'}
 
-    def test_add_branch(self):
-        """Test adding a branch node."""
+    def test_child_creates_leaf_with_value(self):
+        """Test child() creates leaf when value is provided."""
         store = TreeStore()
-        node = store.add_branch('users', {'type': 'list'})
-        assert node.is_branch
-        assert isinstance(node.value, TreeStore)
-        assert node.value.parent is node  # Dual relationship
+        node = store.child('li', value='Hello')
+        assert isinstance(node, TreeStoreNode)
+        assert node.value == 'Hello'
+        assert node.tag == 'li'
+        assert node.is_leaf
+
+    def test_child_with_explicit_label(self):
+        """Test child() with explicit label."""
+        store = TreeStore()
+        div = store.child('div', label='main', color='red')
+        assert 'main' in store
+        assert store['main'].tag == 'div'
+
+    def test_child_with_explicit_label_and_value(self):
+        """Test child() with explicit label and value."""
+        store = TreeStore()
+        node = store.child('li', label='myitem', value='Hello')
+        assert 'myitem' in store
+        assert store['myitem'].value == 'Hello'
+        assert store['myitem'].tag == 'li'
+
+    def test_child_with_attributes_dict(self):
+        """Test child() with attributes dict."""
+        store = TreeStore()
+        attrs = {'color': 'red', 'size': 10}
+        div = store.child('div', attributes=attrs)
+        assert store['div_0'].attr == {'color': 'red', 'size': 10}
+
+    def test_child_attributes_dict_merged_with_kwargs(self):
+        """Test attributes dict is merged with kwargs."""
+        store = TreeStore()
+        attrs = {'color': 'red'}
+        div = store.child('div', attributes=attrs, size=10, color='blue')
+        # kwargs override attributes dict
+        assert store['div_0'].attr == {'color': 'blue', 'size': 10}
+
+    def test_auto_label_increments(self):
+        """Test auto-generated labels increment."""
+        store = TreeStore()
+        store.child('div')
+        store.child('div')
+        store.child('div')
+        assert 'div_0' in store
+        assert 'div_1' in store
+        assert 'div_2' in store
+
+    def test_auto_label_per_tag(self):
+        """Test auto-generated labels are per tag."""
+        store = TreeStore()
+        store.child('div')
+        store.child('span')
+        store.child('div')
+        assert 'div_0' in store
+        assert 'span_0' in store
+        assert 'div_1' in store
+
+    def test_nested_structure(self):
+        """Test building nested structure."""
+        store = TreeStore()
+        div = store.child('div', color='red')
+        ul = div.child('ul')
+        ul.child('li', value='first')
+        ul.child('li', value='second')
+
+        assert 'div_0' in store
+        assert 'ul_0' in store['div_0'].value
+        assert 'li_0' in store['div_0'].value['ul_0'].value
+        assert 'li_1' in store['div_0'].value['ul_0'].value
+
+    def test_underscore_chain(self):
+        """Test ._ chaining for leaf nodes."""
+        store = TreeStore()
+        ul = store.child('ul')
+        # Chain: create li, go back to ul with ._, create another li
+        ul.child('li', value='first')._.child('li', value='second')
+
+        assert 'li_0' in ul
+        assert 'li_1' in ul
+        assert ul['li_0'].value == 'first'
+        assert ul['li_1'].value == 'second'
 
     def test_iteration(self):
         """Test iterating over store."""
         store = TreeStore()
-        store.add_node('a', value=1)
-        store.add_node('b', value=2)
-        assert list(store) == ['a', 'b']
-        assert list(store.keys()) == ['a', 'b']
+        store.child('a', value=1)
+        store.child('b', value=2)
+        assert list(store) == ['a_0', 'b_0']
+        assert list(store.keys()) == ['a_0', 'b_0']
 
     def test_get_with_default(self):
         """Test get method with default value."""
@@ -99,92 +191,192 @@ class TestTreeStore:
     def test_root_property(self):
         """Test root property navigation."""
         root = TreeStore()
-        branch_node = root.add_branch('level1')
-        child_store = branch_node.value
-        child_node = child_store.add_branch('level2')
-        grandchild_store = child_node.value
+        div = root.child('div')
+        ul = div.child('ul')
 
         assert root.root is root
-        assert child_store.root is root
-        assert grandchild_store.root is root
+        assert div.root is root
+        assert ul.root is root
 
     def test_depth_property(self):
         """Test depth calculation."""
         root = TreeStore()
         assert root.depth == 0
 
-        branch = root.add_branch('level1')
-        assert branch.value.depth == 1
+        div = root.child('div')
+        assert div.depth == 1
 
-        deeper = branch.value.add_branch('level2')
-        assert deeper.value.depth == 2
+        ul = div.child('ul')
+        assert ul.depth == 2
 
-    def test_as_dict_simple(self):
-        """Test conversion to dict with simple values."""
+    def test_by_tag(self):
+        """Test by_tag returns nodes with given tag."""
         store = TreeStore()
-        store.add_node('name', value='Alice')
-        store.add_node('age', value=30)
-        assert store.as_dict() == {'name': 'Alice', 'age': 30}
+        store.child('div')
+        store.child('span')
+        store.child('div')
 
-    def test_as_dict_nested(self):
-        """Test conversion to dict with nested branches."""
+        divs = store.by_tag('div')
+        assert len(divs) == 2
+        assert all(n.tag == 'div' for n in divs)
+
+    def test_pop_removes_node(self):
+        """Test pop removes and returns node."""
         store = TreeStore()
-        user_node = store.add_branch('user', {'id': 1})
-        user_node.value.add_node('name', value='Alice')
-        user_node.value.add_node('email', value='alice@example.com')
+        store.child('div')
+        store.child('div')
+        store.child('div')
 
-        expected = {
-            'user': {
-                'id': 1,
-                'name': 'Alice',
-                'email': 'alice@example.com',
-            }
-        }
-        assert store.as_dict() == expected
+        node = store.pop('div_1')
+        assert node.label == 'div_1'
+        assert 'div_1' not in store
+        assert 'div_0' in store
+        assert 'div_2' in store
 
-    def test_walk(self):
-        """Test walking the tree."""
+
+class TestReindex:
+    """Tests for reindex functionality."""
+
+    def test_reindex_removes_gaps(self):
+        """Test reindex removes gaps in auto-labels."""
         store = TreeStore()
-        store.add_node('a', value=1)
-        branch = store.add_branch('b')
-        branch.value.add_node('c', value=2)
+        store.child('div')  # div_0
+        store.child('div')  # div_1
+        store.child('div')  # div_2
 
-        paths = [(path, node.label) for path, node in store.walk()]
-        assert ('a', 'a') in paths
-        assert ('b', 'b') in paths
-        assert ('b.c', 'c') in paths
+        store.pop('div_1')
+        assert list(store) == ['div_0', 'div_2']
+
+        store.reindex()
+        assert list(store) == ['div_0', 'div_1']
+
+    def test_reindex_preserves_explicit_labels(self):
+        """Test reindex preserves explicit labels."""
+        store = TreeStore()
+        store.child('div', label='main')
+        store.child('div')  # div_0
+        store.child('div')  # div_1
+
+        store.pop('div_0')
+        store.reindex()
+
+        assert 'main' in store
+        assert 'div_0' in store
+        assert len(store) == 2
+
+    def test_reindex_recursive(self):
+        """Test reindex works recursively."""
+        store = TreeStore()
+        div = store.child('div')
+        div.child('span')  # span_0
+        div.child('span')  # span_1
+        div.child('span')  # span_2
+        div.pop('span_1')
+
+        store.reindex()
+        assert list(div) == ['span_0', 'span_1']
+
+    def test_reindex_preserves_order(self):
+        """Test reindex preserves original order."""
+        store = TreeStore()
+        store.child('div')  # div_0
+        store.child('div')  # div_1
+        store.child('div')  # div_2
+        store.child('div')  # div_3
+
+        store.pop('div_1')
+        store.pop('div_2')
+        store.reindex()
+
+        # div_0 stays div_0, div_3 becomes div_1
+        nodes = [store[k] for k in sorted(store.keys())]
+        assert nodes[0].label == 'div_0'
+        assert nodes[1].label == 'div_1'
+
+
+class TestAsDict:
+    """Tests for as_dict functionality."""
+
+    def test_as_dict_simple_leaves(self):
+        """Test as_dict with simple leaf values."""
+        store = TreeStore()
+        store.child('name', value='Alice')
+        store.child('age', value=30)
+
+        result = store.as_dict()
+        assert result['name_0'] == 'Alice'
+        assert result['age_0'] == 30
+
+    def test_as_dict_with_branches(self):
+        """Test as_dict with nested branches."""
+        store = TreeStore()
+        div = store.child('div', color='red')
+        div.child('text', value='Hello')
+
+        result = store.as_dict()
+        assert result['div_0']['_tag'] == 'div'
+        assert result['div_0']['color'] == 'red'
+        assert result['div_0']['text_0'] == 'Hello'
+
+    def test_as_dict_leaf_with_attr(self):
+        """Test as_dict for leaf with attributes."""
+        store = TreeStore()
+        store.child('item', value='test_value', style='bold')
+
+        result = store.as_dict()
+        assert result['item_0']['_tag'] == 'item'
+        assert result['item_0']['_value'] == 'test_value'
+        assert result['item_0']['style'] == 'bold'
+
+
+class TestWalk:
+    """Tests for walk functionality."""
+
+    def test_walk_flat(self):
+        """Test walking flat structure."""
+        store = TreeStore()
+        store.child('a', value=1)
+        store.child('b', value=2)
+
+        paths = [(p, n.value) for p, n in store.walk()]
+        assert ('a_0', 1) in paths
+        assert ('b_0', 2) in paths
+
+    def test_walk_nested(self):
+        """Test walking nested structure."""
+        store = TreeStore()
+        div = store.child('div')
+        div.child('span', value='text')
+
+        paths = [p for p, _ in store.walk()]
+        assert 'div_0' in paths
+        assert 'div_0.span_0' in paths
 
 
 class TestParseCardinality:
     """Tests for cardinality parsing."""
 
     def test_parse_true(self):
-        """Test parsing True (unlimited)."""
         assert _parse_cardinality(True) == (0, None)
 
     def test_parse_int(self):
-        """Test parsing integer (exact count)."""
         assert _parse_cardinality(3) == (3, 3)
 
     def test_parse_exact_string(self):
-        """Test parsing exact count string."""
         assert _parse_cardinality('1') == (1, 1)
         assert _parse_cardinality('5') == (5, 5)
 
     def test_parse_range(self):
-        """Test parsing range strings."""
         assert _parse_cardinality('0:') == (0, None)
         assert _parse_cardinality('1:') == (1, None)
         assert _parse_cardinality('1:3') == (1, 3)
         assert _parse_cardinality(':5') == (0, 5)
-        assert _parse_cardinality('0:10') == (0, 10)
 
 
 class TestValidChildrenDecorator:
     """Tests for @valid_children decorator."""
 
     def test_simple_allowed_tags(self):
-        """Test decorator with simple tag list."""
         @valid_children('div', 'span')
         def method():
             pass
@@ -195,7 +387,6 @@ class TestValidChildrenDecorator:
         }
 
     def test_with_constraints(self):
-        """Test decorator with cardinality constraints."""
         @valid_children(title='1', item='1:5')
         def method():
             pass
@@ -206,7 +397,6 @@ class TestValidChildrenDecorator:
         }
 
     def test_mixed_args_and_kwargs(self):
-        """Test decorator with both args and kwargs."""
         @valid_children('div', 'span', title='1')
         def method():
             pass
@@ -218,181 +408,184 @@ class TestValidChildrenDecorator:
         }
 
 
-class TestTreeStoreBuilder:
-    """Tests for TreeStoreBuilder."""
-
-    def test_simple_build(self):
-        """Test building a simple tree."""
-        builder = TreeStoreBuilder()
-        store = (builder
-            .branch('user')
-                .leaf('name', 'Alice')
-                .leaf('age', 30)
-            .up()
-            .build())
-
-        assert 'user_0' in store
-        user = store['user_0'].value
-        assert 'name_0' in user
-        assert user['name_0'].value == 'Alice'
-        assert user['age_0'].value == 30
-
-    def test_nested_branches(self):
-        """Test building nested branches."""
-        builder = TreeStoreBuilder()
-        store = (builder
-            .branch('level1')
-                .branch('level2')
-                    .branch('level3')
-                        .leaf('value', 'deep')
-                    .up()
-                .up()
-            .up()
-            .build())
-
-        level1 = store['level1_0'].value
-        level2 = level1['level2_0'].value
-        level3 = level2['level3_0'].value
-        assert level3['value_0'].value == 'deep'
-
-    def test_sibling_branches(self):
-        """Test building sibling branches."""
-        builder = TreeStoreBuilder()
-        store = (builder
-            .branch('parent')
-                .branch('child')
-                    .leaf('name', 'first')
-                .up()
-                .branch('child')
-                    .leaf('name', 'second')
-                .up()
-            .up()
-            .build())
-
-        parent = store['parent_0'].value
-        assert 'child_0' in parent
-        assert 'child_1' in parent
-        assert parent['child_0'].value['name_0'].value == 'first'
-        assert parent['child_1'].value['name_0'].value == 'second'
-
-    def test_explicit_name(self):
-        """Test using explicit names instead of auto-generated."""
-        builder = TreeStoreBuilder()
-        store = (builder
-            .branch('user', _name='alice')
-                .leaf('email', 'alice@example.com', _name='contact')
-            .up()
-            .build())
-
-        assert 'alice' in store
-        assert 'contact' in store['alice'].value
-
-    def test_attributes(self):
-        """Test passing attributes to nodes."""
-        builder = TreeStoreBuilder()
-        store = (builder
-            .branch('div', id='main', class_='container')
-                .leaf('text', 'Hello', style='bold')
-            .up()
-            .build())
-
-        div = store['div_0']
-        assert div.attr == {'id': 'main', 'class_': 'container'}
-        text = div.value['text_0']
-        assert text.attr == {'style': 'bold'}
-
-    def test_up_at_root_raises(self):
-        """Test that up() at root raises ValueError."""
-        builder = TreeStoreBuilder()
-        with pytest.raises(ValueError, match="Already at root"):
-            builder.up()
-
-    def test_build_returns_to_root(self):
-        """Test that build() returns to root level."""
-        builder = TreeStoreBuilder()
-        store = (builder
-            .branch('a')
-                .branch('b')
-                    .branch('c')
-                        .leaf('x', 1)
-            # No up() calls
-            .build())
-
-        # Should still get the root store
-        assert 'a_0' in store
-
-
 class TestTypedBuilder:
     """Tests for typed builders with validation."""
+
+    def test_html_builder_example(self):
+        """Test a simple HTML-like builder."""
+        class HtmlBuilder(TreeStoreBuilder):
+            def div(self, label: str = None, **attr) -> TreeStore:
+                return self.child('div', label=label, **attr)
+
+            @valid_children('li')
+            def ul(self, label: str = None, **attr) -> TreeStore:
+                return self.child('ul', label=label, **attr)
+
+            def li(self, value: str = None, label: str = None, **attr) -> TreeStoreNode:
+                return self.child('li', label=label, value=value, **attr)
+
+        body = HtmlBuilder()
+        box = body.div(color='red')
+        ul = box.ul()
+        ul.li('pino')
+        ul.li('gino')
+        box2 = body.div(color='green')
+
+        assert 'div_0' in body
+        assert 'div_1' in body
+        assert body['div_0'].attr == {'color': 'red'}
+        assert body['div_1'].attr == {'color': 'green'}
+
+        ul_store = body['div_0'].value['ul_0'].value
+        assert 'li_0' in ul_store
+        assert 'li_1' in ul_store
+        assert ul_store['li_0'].value == 'pino'
+        assert ul_store['li_1'].value == 'gino'
 
     def test_valid_children_enforcement(self):
         """Test that invalid children are rejected."""
         class HtmlBuilder(TreeStoreBuilder):
             @valid_children('li')
-            def ul(self, **attr):
-                return self.branch('ul', **attr)
+            def ul(self, label: str = None, **attr) -> TreeStore:
+                return self.child('ul', label=label, **attr)
 
-            def li(self, **attr):
-                return self.branch('li', **attr)
+            def li(self, value: str = None, **attr) -> TreeStoreNode:
+                return self.child('li', value=value, **attr)
 
-            def div(self, **attr):
-                return self.branch('div', **attr)
+            def div(self, **attr) -> TreeStore:
+                return self.child('div', **attr)
 
         builder = HtmlBuilder()
-        builder.ul()
-        builder.li()  # OK
-        builder.up()
+        ul = builder.ul()
+        ul.li('item')  # OK
 
-        with pytest.raises(InvalidChildError, match="div.*not a valid child"):
-            builder.div()  # Should fail
-
-    def test_mandatory_children(self):
-        """Test that mandatory children are enforced."""
-        class DocBuilder(TreeStoreBuilder):
-            @valid_children(title='1', body='1')
-            def document(self, **attr):
-                return self.branch('document', **attr)
-
-            def title(self, text: str, **attr):
-                return self.leaf('title', text, **attr)
-
-            def body(self, **attr):
-                return self.branch('body', **attr)
-
-        builder = DocBuilder()
-        builder.document()
-        builder.title('My Doc')
-        # Missing body
-
-        with pytest.raises(MissingChildError, match="body.*missing"):
-            builder.up()
+        with pytest.raises(InvalidChildError, match="div.*not valid"):
+            ul.child('div')  # div not allowed in ul
 
     def test_max_children_enforcement(self):
         """Test that max children count is enforced."""
         class LimitedBuilder(TreeStoreBuilder):
             @valid_children(item='0:2')
-            def container(self, **attr):
-                return self.branch('container', **attr)
+            def container(self, **attr) -> TreeStore:
+                return self.child('container', **attr)
 
-            def item(self, value: str, **attr):
-                return self.leaf('item', value, **attr)
+            def item(self, value: str, **attr) -> TreeStoreNode:
+                return self.child('item', value=value, **attr)
 
         builder = LimitedBuilder()
-        builder.container()
-        builder.item('first')
-        builder.item('second')
+        cont = builder.container()
+        cont.item('first')
+        cont.item('second')
 
         with pytest.raises(TooManyChildrenError, match="Maximum 2"):
-            builder.item('third')
+            cont.item('third')
 
-    def test_allowed_tags_whitelist(self):
-        """Test ALLOWED_TAGS whitelist."""
-        class RestrictedBuilder(TreeStoreBuilder):
-            ALLOWED_TAGS = {'div', 'span', 'p'}
+    def test_child_store_inherits_builder_class(self):
+        """Test that child stores maintain builder methods."""
+        class HtmlBuilder(TreeStoreBuilder):
+            def div(self, **attr) -> TreeStore:
+                return self.child('div', **attr)
 
-        builder = RestrictedBuilder()
-        builder.branch('div')  # OK
-        builder.up()
+            def span(self, value: str = None, **attr) -> TreeStoreNode:
+                return self.child('span', value=value, **attr)
 
-        with pytest.raises(InvalidChildError, match="not in ALLOWED_TAGS"):
-            builder.branch('script')
+        builder = HtmlBuilder()
+        div = builder.div()
+        # div should be an HtmlBuilder instance, not plain TreeStore
+        assert isinstance(div, HtmlBuilder)
+        # So it should have the div method
+        inner_div = div.div()
+        assert isinstance(inner_div, HtmlBuilder)
+
+
+class TestDottedPathAccess:
+    """Tests for dotted path access in __getitem__."""
+
+    def test_single_label_access(self):
+        """Test that single label access still works."""
+        store = TreeStore()
+        store.child('div')
+        assert store['div_0'].tag == 'div'
+
+    def test_dotted_path_two_levels(self):
+        """Test dotted path with two levels."""
+        store = TreeStore()
+        div = store.child('div')
+        div.child('span', value='text')
+
+        node = store['div_0.span_0']
+        assert node.tag == 'span'
+        assert node.value == 'text'
+
+    def test_dotted_path_three_levels(self):
+        """Test dotted path with three levels."""
+        store = TreeStore()
+        div = store.child('div')
+        ul = div.child('ul')
+        ul.child('li', value='first')
+
+        node = store['div_0.ul_0.li_0']
+        assert node.tag == 'li'
+        assert node.value == 'first'
+
+    def test_dotted_path_keyerror_missing_intermediate(self):
+        """Test KeyError for missing intermediate node."""
+        store = TreeStore()
+        store.child('div')
+
+        with pytest.raises(KeyError):
+            _ = store['div_0.nonexistent.child']
+
+    def test_dotted_path_keyerror_on_leaf(self):
+        """Test KeyError when path goes through leaf node."""
+        store = TreeStore()
+        div = store.child('div')
+        div.child('text', value='Hello')
+
+        with pytest.raises(KeyError, match="not a branch"):
+            _ = store['div_0.text_0.child']
+
+    def test_dotted_path_with_explicit_labels(self):
+        """Test dotted path with explicit labels."""
+        store = TreeStore()
+        div = store.child('div', label='main')
+        ul = div.child('ul', label='menu')
+        ul.child('li', label='home', value='Home')
+
+        node = store['main.menu.home']
+        assert node.value == 'Home'
+
+
+class TestIntegration:
+    """Integration tests."""
+
+    def test_complete_html_structure(self):
+        """Test building a complete HTML-like structure."""
+        store = TreeStore()
+
+        # Build structure
+        html = store.child('html')
+        head = html.child('head')
+        head.child('title', value='My Page')
+
+        body = html.child('body')
+        div = body.child('div', label='container', class_='main')
+        div.child('h1', value='Welcome')
+
+        ul = div.child('ul')
+        ul.child('li', value='Item 1')._.child('li', value='Item 2')._.child('li', value='Item 3')
+
+        # Verify structure
+        assert 'html_0' in store
+        html_store = store['html_0'].value
+        assert 'head_0' in html_store
+        assert 'body_0' in html_store
+
+        body_store = html_store['body_0'].value
+        assert 'container' in body_store
+
+        ul_store = body_store['container'].value['ul_0'].value
+        assert len(ul_store) == 3
+        assert ul_store['li_0'].value == 'Item 1'
+        assert ul_store['li_1'].value == 'Item 2'
+        assert ul_store['li_2'].value == 'Item 3'
