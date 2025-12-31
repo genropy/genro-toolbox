@@ -601,6 +601,81 @@ class TestDottedPathAccess:
         assert node.value == 'item2'
 
 
+class TestAttributeAccess:
+    """Tests for attribute access with ?attr syntax."""
+
+    def test_get_attribute_simple(self):
+        """Test getting attribute with ?attr syntax."""
+        store = TreeStore()
+        store.child('div', color='red', size=10)
+
+        assert store['div_0?color'] == 'red'
+        assert store['div_0?size'] == 10
+
+    def test_get_attribute_missing_returns_none(self):
+        """Test getting missing attribute returns None."""
+        store = TreeStore()
+        store.child('div', color='red')
+
+        assert store['div_0?missing'] is None
+
+    def test_get_attribute_in_path(self):
+        """Test getting attribute in dotted path."""
+        store = TreeStore()
+        div = store.child('div')
+        div.child('ul', class_='menu', id='nav')
+
+        assert store['div_0.ul_0?class_'] == 'menu'
+        assert store['div_0.ul_0?id'] == 'nav'
+
+    def test_get_attribute_with_positional(self):
+        """Test getting attribute with positional access."""
+        store = TreeStore()
+        store.child('div', color='red')
+        store.child('span', color='blue')
+
+        assert store['#0?color'] == 'red'
+        assert store['#1?color'] == 'blue'
+
+    def test_set_attribute_simple(self):
+        """Test setting attribute with ?attr syntax."""
+        store = TreeStore()
+        store.child('div')
+
+        store['div_0?color'] = 'red'
+        assert store['div_0'].attr['color'] == 'red'
+
+    def test_set_attribute_in_path(self):
+        """Test setting attribute in dotted path."""
+        store = TreeStore()
+        div = store.child('div')
+        div.child('ul')
+
+        store['div_0.ul_0?class'] = 'active'
+        assert store['div_0.ul_0'].attr['class'] == 'active'
+
+    def test_set_attribute_with_positional(self):
+        """Test setting attribute with positional access."""
+        store = TreeStore()
+        div = store.child('div')
+        ul = div.child('ul')
+        ul.child('li', value='first')
+        ul.child('li', value='second')
+        ul.child('li', value='third')
+        ul.child('li', value='fourth')
+
+        store['#0.ul_0.#3?highlight'] = True
+        assert store['div_0.ul_0.li_3'].attr['highlight'] is True
+
+    def test_set_without_attr_raises(self):
+        """Test that setting without ?attr raises KeyError."""
+        store = TreeStore()
+        store.child('div')
+
+        with pytest.raises(KeyError, match="use .attr syntax"):
+            store['div_0'] = 'something'
+
+
 class TestIntegration:
     """Integration tests."""
 

@@ -158,28 +158,26 @@ class TreeStore:
             raise KeyError(f"Position #{index} out of range (0-{len(labels)-1})")
         return self.nodes[labels[index]]
 
-    def __getitem__(self, path: str) -> TreeStoreNode:
-        """Get node by label, dotted path, or positional index.
+    def _resolve_path(self, path: str) -> tuple[TreeStoreNode, str | None]:
+        """Resolve a path to a node and optional attribute name.
 
         Args:
-            path: Single label, dotted path, or positional path.
-                  Supports #N syntax for positional access.
+            path: Path string, optionally ending with ?attr_name
 
         Returns:
-            TreeStoreNode at the specified path.
-
-        Example:
-            >>> store['div_0']              # by label
-            >>> store['#0']                 # first node (positional)
-            >>> store['div_0.ul_0.li_0']    # dotted path by labels
-            >>> store['#0.ul_0.#3']         # mixed: first child, then ul_0, then 4th child
+            Tuple of (node, attr_name or None)
         """
+        # Check for attribute access
+        attr_name = None
+        if '?' in path:
+            path, attr_name = path.rsplit('?', 1)
+
         # Simple case: no dots
         if '.' not in path:
             is_pos, key = self._parse_path_segment(path)
             if is_pos:
-                return self._get_node_by_position(key)
-            return self.nodes[path]
+                return self._get_node_by_position(key), attr_name
+            return self.nodes[path], attr_name
 
         # Dotted path
         parts = path.split('.')
@@ -197,7 +195,47 @@ class TreeStore:
                 if not node.is_branch:
                     raise KeyError(f"'{part}' is not a branch at path '{'.'.join(parts[:i+1])}'")
                 current = node.value
+        return node, attr_name
+
+    def __getitem__(self, path: str) -> TreeStoreNode | Any:
+        """Get node or attribute by path.
+
+        Args:
+            path: Single label, dotted path, or positional path.
+                  Supports #N syntax for positional access.
+                  Supports ?attr suffix for attribute access.
+
+        Returns:
+            TreeStoreNode at the specified path, or attribute value if ?attr is used.
+
+        Example:
+            >>> store['div_0']              # by label -> TreeStoreNode
+            >>> store['#0']                 # first node (positional)
+            >>> store['div_0.ul_0.li_0']    # dotted path by labels
+            >>> store['#0.ul_0.#3']         # mixed: first child, then ul_0, then 4th child
+            >>> store['div_0?color']        # get 'color' attribute of div_0
+            >>> store['div_0.ul_0?class']   # get 'class' attribute of ul_0
+        """
+        node, attr_name = self._resolve_path(path)
+        if attr_name is not None:
+            return node.attr.get(attr_name)
         return node
+
+    def __setitem__(self, path: str, value: Any) -> None:
+        """Set attribute value by path.
+
+        Args:
+            path: Path with ?attr suffix for attribute access.
+            value: Value to set.
+
+        Example:
+            >>> store['div_0?color'] = 'red'
+            >>> store['div_0.ul_0.li_0?class'] = 'active'
+        """
+        node, attr_name = self._resolve_path(path)
+        if attr_name is None:
+            raise KeyError("Cannot set node directly, use ?attr syntax to set attributes")
+        node.attr[attr_name] = value
 
     @property
     def _(self) -> TreeStore:
