@@ -22,52 +22,65 @@ class TestTreeStoreNode:
 
     def test_create_simple_node(self):
         """Test creating a simple node with scalar value."""
-        node = TreeStoreNode('name_0', 'name', {'id': 1}, 'Alice')
+        node = TreeStoreNode('name_0', {'_tag': 'name', 'id': 1}, 'Alice')
         assert node.label == 'name_0'
         assert node.tag == 'name'
-        assert node.attr == {'id': 1}
+        assert node.attr == {'_tag': 'name', 'id': 1}
         assert node.value == 'Alice'
         assert node.parent is None
 
     def test_create_node_defaults(self):
         """Test node creation with default values."""
-        node = TreeStoreNode('empty_0', 'empty')
+        node = TreeStoreNode('empty_0')
         assert node.label == 'empty_0'
-        assert node.tag == 'empty'
+        assert node.tag is None
         assert node.attr == {}
         assert node.value is None
         assert node.parent is None
 
+    def test_create_node_with_tag(self):
+        """Test node creation with tag in attr."""
+        node = TreeStoreNode('item_0', {'_tag': 'item'})
+        assert node.label == 'item_0'
+        assert node.tag == 'item'
+
     def test_is_leaf(self):
         """Test is_leaf property for scalar values."""
-        node = TreeStoreNode('name_0', 'name', value='Alice')
+        node = TreeStoreNode('name_0', {'_tag': 'name'}, value='Alice')
         assert node.is_leaf is True
         assert node.is_branch is False
 
     def test_is_branch(self):
         """Test is_branch property for TreeStore values."""
         store = TreeStore()
-        node = TreeStoreNode('container_0', 'container', value=store)
+        node = TreeStoreNode('container_0', {'_tag': 'container'}, value=store)
         assert node.is_branch is True
         assert node.is_leaf is False
 
-    def test_repr(self):
-        """Test string representation."""
-        node = TreeStoreNode('name_0', 'name', {'id': 1}, 'Alice')
+    def test_repr_with_tag(self):
+        """Test string representation with tag."""
+        node = TreeStoreNode('name_0', {'_tag': 'name', 'id': 1}, 'Alice')
         repr_str = repr(node)
         assert 'name_0' in repr_str
         assert 'name' in repr_str
         assert 'Alice' in repr_str
 
+    def test_repr_without_tag(self):
+        """Test string representation without tag."""
+        node = TreeStoreNode('item_0', {'id': 1}, 'value')
+        repr_str = repr(node)
+        assert 'item_0' in repr_str
+        assert 'value' in repr_str
+
     def test_underscore_property_returns_parent(self):
         """Test ._ returns parent TreeStore."""
         store = TreeStore()
-        node = TreeStoreNode('item_0', 'item', value='test', parent=store)
+        node = TreeStoreNode('item_0', value='test', parent=store)
         assert node._ is store
 
     def test_underscore_property_no_parent_raises(self):
         """Test ._ raises when no parent."""
-        node = TreeStoreNode('orphan_0', 'orphan')
+        node = TreeStoreNode('orphan_0')
         with pytest.raises(ValueError, match="no parent"):
             _ = node._
 
@@ -88,7 +101,7 @@ class TestTreeStore:
         assert isinstance(div, TreeStore)
         assert 'div_0' in store
         assert store['div_0'].tag == 'div'
-        assert store['div_0'].attr == {'color': 'red'}
+        assert store['div_0'].attr == {'_tag': 'div', 'color': 'red'}
 
     def test_child_creates_leaf_with_value(self):
         """Test child() creates leaf when value is provided."""
@@ -119,7 +132,7 @@ class TestTreeStore:
         store = TreeStore()
         attrs = {'color': 'red', 'size': 10}
         div = store.child('div', attributes=attrs)
-        assert store['div_0'].attr == {'color': 'red', 'size': 10}
+        assert store['div_0'].attr == {'_tag': 'div', 'color': 'red', 'size': 10}
 
     def test_child_attributes_dict_merged_with_kwargs(self):
         """Test attributes dict is merged with kwargs."""
@@ -127,7 +140,7 @@ class TestTreeStore:
         attrs = {'color': 'red'}
         div = store.child('div', attributes=attrs, size=10, color='blue')
         # kwargs override attributes dict
-        assert store['div_0'].attr == {'color': 'blue', 'size': 10}
+        assert store['div_0'].attr == {'_tag': 'div', 'color': 'blue', 'size': 10}
 
     def test_auto_label_increments(self):
         """Test auto-generated labels increment."""
@@ -433,8 +446,8 @@ class TestTypedBuilder:
 
         assert 'div_0' in body
         assert 'div_1' in body
-        assert body['div_0'].attr == {'color': 'red'}
-        assert body['div_1'].attr == {'color': 'green'}
+        assert body['div_0'].attr == {'_tag': 'div', 'color': 'red'}
+        assert body['div_1'].attr == {'_tag': 'div', 'color': 'green'}
 
         ul_store = body['div_0'].value['ul_0'].value
         assert 'li_0' in ul_store

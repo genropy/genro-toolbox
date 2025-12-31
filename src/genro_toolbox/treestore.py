@@ -4,9 +4,12 @@
 """TreeStore - A hierarchical structure with builder pattern support.
 
 This module provides:
-- TreeStoreNode: A node with label, tag, attributes, and value
+- TreeStoreNode: A node with label, attributes, and value
 - TreeStore: A container of TreeStoreNodes with builder methods
+- TreeStoreBuilder: Base class for typed builders with tag support
 - valid_children: Decorator for child validation in typed builders
+
+The tag (node type) is stored in attr['_tag'] for builder use cases.
 """
 
 from __future__ import annotations
@@ -23,25 +26,23 @@ class TreeStoreNode:
 
     Each node has:
     - label: The node's unique name/key within its parent
-    - tag: The node's type (e.g., 'div', 'ul', 'li')
-    - attr: Dictionary of attributes
+    - attr: Dictionary of attributes (may include '_tag' for typed builders)
     - value: Either a scalar value or a TreeStore (for children)
     - parent: Reference to the containing TreeStore
 
     Example:
-        >>> node = TreeStoreNode('user_0', 'user', {'id': 1}, TreeStore())
+        >>> node = TreeStoreNode('user_0', {'_tag': 'user', 'id': 1}, TreeStore())
         >>> node.label
         'user_0'
-        >>> node.tag
+        >>> node.tag  # convenience property for attr.get('_tag')
         'user'
     """
 
-    __slots__ = ('label', 'tag', 'attr', 'value', 'parent')
+    __slots__ = ('label', 'attr', 'value', 'parent')
 
     def __init__(
         self,
         label: str,
-        tag: str,
         attr: dict[str, Any] | None = None,
         value: Any | TreeStore = None,
         parent: TreeStore | None = None,
@@ -50,16 +51,19 @@ class TreeStoreNode:
 
         Args:
             label: The node's unique name/key.
-            tag: The node's type.
-            attr: Optional dictionary of attributes.
+            attr: Optional dictionary of attributes (may include '_tag').
             value: The node's value (scalar or TreeStore for children).
             parent: The TreeStore containing this node.
         """
         self.label = label
-        self.tag = tag
         self.attr = attr or {}
         self.value = value
         self.parent = parent
+
+    @property
+    def tag(self) -> str | None:
+        """Get the node's tag (type) from attr['_tag']."""
+        return self.attr.get('_tag')
 
     def __repr__(self) -> str:
         value_repr = (
@@ -67,7 +71,10 @@ class TreeStoreNode:
             if isinstance(self.value, TreeStore)
             else repr(self.value)
         )
-        return f"TreeStoreNode({self.label!r}, tag={self.tag!r}, value={value_repr})"
+        tag = self.tag
+        if tag:
+            return f"TreeStoreNode({self.label!r}, tag={tag!r}, value={value_repr})"
+        return f"TreeStoreNode({self.label!r}, value={value_repr})"
 
     @property
     def is_branch(self) -> bool:
@@ -308,8 +315,8 @@ class TreeStore:
             >>> store.child('li', value='Hello')       # leaf, label='li_0'
             >>> store.child('li', label='item1', value='Hello')  # leaf, label='item1'
         """
-        # Merge attributes dict with kwargs
-        final_attr: dict[str, Any] = {}
+        # Merge attributes dict with kwargs, add _tag
+        final_attr: dict[str, Any] = {'_tag': tag}
         if attributes:
             final_attr.update(attributes)
         final_attr.update(attr)
@@ -323,7 +330,7 @@ class TreeStore:
 
         if value is not None:
             # Create leaf node
-            node = TreeStoreNode(label, tag, final_attr, value, parent=self)
+            node = TreeStoreNode(label, final_attr, value, parent=self)
             self.nodes[label] = node
             return node
         else:
@@ -334,7 +341,7 @@ class TreeStore:
             child_store._tag = None
             child_store._tag_counters = {}
 
-            node = TreeStoreNode(label, tag, final_attr, value=child_store, parent=self)
+            node = TreeStoreNode(label, final_attr, value=child_store, parent=self)
             child_store.parent = node  # Dual relationship
             child_store._tag = tag  # For validation context
             self.nodes[label] = node
@@ -431,21 +438,22 @@ class TreeStore:
     def as_dict(self) -> dict[str, Any]:
         """Convert to plain dict (recursive).
 
-        Branch nodes become nested dicts with '_tag' and their attributes.
-        Leaf nodes become their value directly.
+        Branch nodes become nested dicts with their attributes and children.
+        Leaf nodes become their value directly (or dict with _value if has attrs).
         """
         result: dict[str, Any] = {}
         for label, node in self.nodes.items():
             if node.is_branch:
                 child_dict = node.value.as_dict()
-                node_dict = {'_tag': node.tag}
-                if node.attr:
-                    node_dict.update(node.attr)
+                # Start with attributes (includes _tag if set)
+                node_dict = dict(node.attr)
                 node_dict.update(child_dict)
                 result[label] = node_dict
             else:
-                if node.attr:
-                    result[label] = {'_tag': node.tag, '_value': node.value, **node.attr}
+                # Leaf: check if has meaningful attrs beyond _tag
+                other_attrs = {k: v for k, v in node.attr.items() if k != '_tag'}
+                if other_attrs:
+                    result[label] = {'_value': node.value, **node.attr}
                 else:
                     result[label] = node.value
         return result
