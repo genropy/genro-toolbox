@@ -555,6 +555,51 @@ class TestDottedPathAccess:
         node = store['main.menu.home']
         assert node.value == 'Home'
 
+    def test_positional_access_simple(self):
+        """Test positional access with #N syntax."""
+        store = TreeStore()
+        store.child('div')
+        store.child('span')
+        store.child('p')
+
+        assert store['#0'].tag == 'div'
+        assert store['#1'].tag == 'span'
+        assert store['#2'].tag == 'p'
+
+    def test_positional_access_out_of_range(self):
+        """Test KeyError for out of range position."""
+        store = TreeStore()
+        store.child('div')
+
+        with pytest.raises(KeyError, match="out of range"):
+            _ = store['#5']
+
+    def test_positional_access_in_path(self):
+        """Test positional access in dotted path."""
+        store = TreeStore()
+        div = store.child('div')
+        ul = div.child('ul')
+        ul.child('li', value='first')
+        ul.child('li', value='second')
+        ul.child('li', value='third')
+        ul.child('li', value='fourth')
+
+        # Access: first child (div_0) -> ul_0 -> fourth item (#3)
+        node = store['#0.ul_0.#3']
+        assert node.value == 'fourth'
+
+    def test_mixed_positional_and_label_access(self):
+        """Test mixing positional and label access."""
+        store = TreeStore()
+        div = store.child('div', label='main')
+        ul = div.child('ul')
+        ul.child('li', value='item1')
+        ul.child('li', value='item2')
+
+        # main -> first child (ul_0) -> second item (#1)
+        node = store['main.#0.#1']
+        assert node.value == 'item2'
+
 
 class TestIntegration:
     """Integration tests."""

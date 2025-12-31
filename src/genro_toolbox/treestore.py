@@ -141,26 +141,57 @@ class TreeStore:
     def __contains__(self, label: str) -> bool:
         return label in self.nodes
 
+    def _parse_path_segment(self, segment: str) -> tuple[bool, int | str]:
+        """Parse a path segment, detecting positional index (#N) syntax.
+
+        Returns:
+            Tuple of (is_positional, index_or_label)
+        """
+        if segment.startswith('#') and segment[1:].isdigit():
+            return True, int(segment[1:])
+        return False, segment
+
+    def _get_node_by_position(self, index: int) -> TreeStoreNode:
+        """Get node by positional index."""
+        labels = list(self.nodes.keys())
+        if index < 0 or index >= len(labels):
+            raise KeyError(f"Position #{index} out of range (0-{len(labels)-1})")
+        return self.nodes[labels[index]]
+
     def __getitem__(self, path: str) -> TreeStoreNode:
-        """Get node by label or dotted path.
+        """Get node by label, dotted path, or positional index.
 
         Args:
-            path: Single label or dotted path (e.g., 'div_0.ul_0.li_0')
+            path: Single label, dotted path, or positional path.
+                  Supports #N syntax for positional access.
 
         Returns:
             TreeStoreNode at the specified path.
 
         Example:
-            >>> store['div_0']              # single label
-            >>> store['div_0.ul_0.li_0']    # dotted path
+            >>> store['div_0']              # by label
+            >>> store['#0']                 # first node (positional)
+            >>> store['div_0.ul_0.li_0']    # dotted path by labels
+            >>> store['#0.ul_0.#3']         # mixed: first child, then ul_0, then 4th child
         """
+        # Simple case: no dots
         if '.' not in path:
+            is_pos, key = self._parse_path_segment(path)
+            if is_pos:
+                return self._get_node_by_position(key)
             return self.nodes[path]
 
+        # Dotted path
         parts = path.split('.')
         current = self
+        node = None
         for i, part in enumerate(parts):
-            node = current.nodes[part]
+            is_pos, key = self._parse_path_segment(part)
+            if is_pos:
+                node = current._get_node_by_position(key)
+            else:
+                node = current.nodes[key]
+
             if i < len(parts) - 1:
                 # Not the last part, descend into branch
                 if not node.is_branch:
