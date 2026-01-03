@@ -152,3 +152,120 @@ def smartasync(method):
     wrapper._smartasync_reset_cache = reset_cache
 
     return wrapper
+
+
+async def smartawait(result):
+    """Await result if it's a coroutine, otherwise return as-is.
+
+    Useful when calling methods that may be sync or async (e.g., overridden
+    methods in subclasses where the base class doesn't know if the override
+    is async or not).
+
+    Args:
+        result: Either a value or a coroutine that returns a value
+
+    Returns:
+        The value (awaited if coroutine, direct otherwise)
+
+    Example:
+        async def _do_load(self) -> Any:
+            # self.load() might be sync or async depending on subclass
+            result = await smartawait(self.load())
+            return result
+    """
+    if asyncio.iscoroutine(result):
+        return await result
+    return result
+
+
+class SmartLock:
+    """Async lock with Future sharing, created on-demand.
+
+    Useful for classes that may or may not be used in async context.
+    The lock and futures are only created when actually needed.
+
+    Features:
+        - Lock created lazily on first use
+        - Future sharing: concurrent callers wait for same result
+        - Automatic cleanup after completion
+
+    Example:
+        class CachedLoader:
+            def __init__(self):
+                self._lock = SmartLock()
+                self._value = None
+                self._loaded = False
+
+            async def get_value(self):
+                if self._loaded:
+                    return self._value
+
+                result = await self._lock.run_once(self._do_load)
+                if result is not None:  # First caller returns value
+                    self._value = result
+                    self._loaded = True
+                return self._value
+
+            async def _do_load(self):
+                # Expensive async operation
+                return await fetch_data()
+    """
+
+    __slots__ = ("_lock", "_future")
+
+    def __init__(self):
+        """Initialize with no lock or future (created on-demand)."""
+        self._lock = None
+        self._future = None
+
+    async def run_once(self, coro_func, *args, **kwargs):
+        """Execute coroutine once, sharing result with concurrent callers.
+
+        If another caller is already executing, waits for their result
+        instead of running the coroutine again.
+
+        Args:
+            coro_func: Async function to execute
+            *args: Positional arguments for coro_func
+            **kwargs: Keyword arguments for coro_func
+
+        Returns:
+            Result from coro_func (either from this call or shared)
+
+        Raises:
+            Any exception raised by coro_func (propagated to all waiters)
+        """
+        # Fast path: if Future exists, another call is in progress
+        if self._future is not None:
+            return await self._future
+
+        # Create lock on first use
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+
+        async with self._lock:
+            # Double-check after acquiring lock
+            if self._future is not None:
+                return await self._future
+
+            # Create Future for other callers to await
+            loop = asyncio.get_event_loop()
+            self._future = loop.create_future()
+
+            try:
+                result = await coro_func(*args, **kwargs)
+                self._future.set_result(result)
+                return result
+            except Exception as e:
+                self._future.set_exception(e)
+                raise
+            finally:
+                self._future = None
+
+    def reset(self):
+        """Reset the lock state.
+
+        Clears any pending future. Use with caution - concurrent
+        callers waiting on a future will receive an error.
+        """
+        self._future = None
