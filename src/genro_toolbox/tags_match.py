@@ -136,8 +136,7 @@ class _TagParser:
                 # Check if it's just whitespace at end
                 if self._rule[pos:].strip():
                     raise RuleError(
-                        f"Invalid character in tag rule at position {pos}: "
-                        f"'{self._rule[pos]}'"
+                        f"Invalid character in tag rule at position {pos}: " f"'{self._rule[pos]}'"
                     )
                 break
 
@@ -255,9 +254,7 @@ class _TagParser:
             self._advance()
             self._depth += 1
             if self._depth > self._max_depth:
-                raise RuleError(
-                    f"Tag rule too deeply nested (max {self._max_depth}): {self._rule}"
-                )
+                raise RuleError(f"Tag rule too deeply nested (max {self._max_depth}): {self._rule}")
             result = self._parse_or()
             self._expect("RPAREN")
             self._depth -= 1

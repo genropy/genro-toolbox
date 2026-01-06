@@ -73,11 +73,7 @@ def format_cell(value, coldef):
             dt = datetime.fromisoformat(str(value))
         except Exception:
             return str(value)
-        return (
-            dt.strftime(normalize_date_format(fmt))
-            if fmt
-            else dt.strftime("%Y-%m-%d %H:%M:%S")
-        )
+        return dt.strftime(normalize_date_format(fmt)) if fmt else dt.strftime("%Y-%m-%d %H:%M:%S")
     return str(value)
 
 
@@ -152,9 +148,7 @@ def compute_col_widths(names, rows, max_width=120, minw=6, pad=1):
             for i in range(len(widths)):
                 extra = widths[i] - min_widths[i]
                 if total > sum(min_widths):
-                    widths[i] = min_widths[i] + int(
-                        extra * remaining / (total - sum(min_widths))
-                    )
+                    widths[i] = min_widths[i] + int(extra * remaining / (total - sum(min_widths)))
                 else:  # pragma: no cover - guard against division by zero
                     widths[i] = min_widths[i]
         else:
@@ -174,14 +168,12 @@ def wrap_row(row, widths):
         if has_long_word:
             # Must break long words
             result.append(
-                textwrap.wrap(s, width, break_long_words=True, break_on_hyphens=False)
-                or [""]
+                textwrap.wrap(s, width, break_long_words=True, break_on_hyphens=False) or [""]
             )
         else:
             # Can wrap without breaking words
             result.append(
-                textwrap.wrap(s, width, break_long_words=False, break_on_hyphens=False)
-                or [""]
+                textwrap.wrap(s, width, break_long_words=False, break_on_hyphens=False) or [""]
             )
     return result
 

@@ -166,9 +166,7 @@ class TestHelpfulErrorMessage:
             try:
                 coro.close()
             finally:
-                raise RuntimeError(
-                    "asyncio.run() cannot be called from a running event loop"
-                )
+                raise RuntimeError("asyncio.run() cannot be called from a running event loop")
 
         monkeypatch.setattr(asyncio, "run", fake_asyncio_run)
 
@@ -220,9 +218,7 @@ class TestStandaloneFunctions:
         assert result == 49
 
         # Multiple concurrent calls
-        results = await asyncio.gather(
-            cpu_intensive(2), cpu_intensive(3), cpu_intensive(4)
-        )
+        results = await asyncio.gather(cpu_intensive(2), cpu_intensive(3), cpu_intensive(4))
         assert results == [4, 9, 16]
 
 

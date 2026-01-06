@@ -359,17 +359,13 @@ class TreeDict:
 
             parser = configparser.ConfigParser()
             parser.read(path)
-            data = {
-                section: dict(parser.items(section)) for section in parser.sections()
-            }
+            data = {section: dict(parser.items(section)) for section in parser.sections()}
         else:
             raise ValueError(f"Unsupported config file format: {suffix}")
 
         return cls(data)
 
-    def walk(
-        self, expand_lists: bool = False, _prefix: str = ""
-    ) -> Iterator[tuple[str, Any]]:
+    def walk(self, expand_lists: bool = False, _prefix: str = "") -> Iterator[tuple[str, Any]]:
         """Iterate over all paths and leaf values.
 
         Args:
