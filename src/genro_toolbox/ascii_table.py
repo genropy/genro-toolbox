@@ -160,7 +160,7 @@ def compute_col_widths(names, rows, max_width=120, minw=6, pad=1):
 
 def wrap_row(row, widths):
     result = []
-    for cell, width in zip(row, widths):
+    for cell, width in zip(row, widths, strict=False):
         s = str(cell)
         # Check if any word is longer than width
         words = s.split()
@@ -204,7 +204,7 @@ def draw_table(headers, rows, max_width=120):
             "|"
             + "|".join(
                 apply_align(txt, w, h.get("align", "left"))
-                for txt, w, h in zip(line, widths, headers)
+                for txt, w, h in zip(line, widths, headers, strict=False)
             )
             + "|"
         )
@@ -215,7 +215,7 @@ def draw_table(headers, rows, max_width=120):
                 "|"
                 + "|".join(
                     apply_align(txt, w, h.get("align", "left"))
-                    for txt, w, h in zip(line, widths, headers)
+                    for txt, w, h in zip(line, widths, headers, strict=False)
                 )
                 + "|"
             )
@@ -228,7 +228,7 @@ def render_ascii_table(data, max_width=None):
     rows = data["rows"]
     if max_width is None:
         max_width = data.get("max_width", 120)
-    formatted = [[format_cell(c, h) for c, h in zip(r, headers)] for r in rows]
+    formatted = [[format_cell(c, h) for c, h in zip(r, headers, strict=False)] for r in rows]
     final = apply_hierarchy(headers, formatted)
     table = draw_table(headers, final, max_width=max_width)
     title = data.get("title")
@@ -243,6 +243,6 @@ def render_markdown_table(data):
     out.append("| " + " | ".join(names) + " |")
     out.append("| " + " | ".join("---" for _ in names) + " |")
     for r in rows:
-        vals = [format_cell(c, h) for c, h in zip(r, headers)]
+        vals = [format_cell(c, h) for c, h in zip(r, headers, strict=False)]
         out.append("| " + " | ".join(vals) + " |")
     return "\n".join(out)

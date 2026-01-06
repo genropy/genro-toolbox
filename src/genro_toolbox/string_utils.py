@@ -20,7 +20,7 @@ def smartsplit(path: str, separator: str) -> list[str]:
     Example:
         >>> smartsplit('a.b.c', '.')
         ['a', 'b', 'c']
-        >>> smartsplit(r'a\.b.c', '.')
+        >>> smartsplit(r'a\\.b.c', '.')
         ['a\\\\.b', 'c']
     """
     escape = "\\" + separator

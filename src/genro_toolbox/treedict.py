@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from threading import RLock
-from typing import Any, Iterator
+from typing import Any
 
 
 class TreeDict:

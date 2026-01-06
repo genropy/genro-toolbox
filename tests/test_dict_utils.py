@@ -1,6 +1,7 @@
 """Tests for dict utility helpers."""
 
 import pytest
+
 from genro_toolbox import SmartOptions
 from genro_toolbox.dict_utils import filtered_dict
 

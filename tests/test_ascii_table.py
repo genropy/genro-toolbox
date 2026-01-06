@@ -1,20 +1,20 @@
 """Tests for ascii_table module."""
 
 from genro_toolbox.ascii_table import (
-    render_ascii_table,
-    render_markdown_table,
+    apply_align,
+    apply_hierarchy,
+    build_tree,
+    compute_col_widths,
+    draw_table,
+    flatten_tree,
     format_cell,
-    strip_ansi,
+    merge_wrapped,
     normalize_date_format,
     parse_bool,
-    build_tree,
-    flatten_tree,
-    apply_hierarchy,
-    compute_col_widths,
+    render_ascii_table,
+    render_markdown_table,
+    strip_ansi,
     wrap_row,
-    merge_wrapped,
-    apply_align,
-    draw_table,
 )
 
 

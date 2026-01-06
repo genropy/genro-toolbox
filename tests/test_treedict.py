@@ -320,9 +320,8 @@ class TestTreeDictContextManager:
     def test_context_manager_nested(self) -> None:
         """Nested context managers work (RLock is reentrant)."""
         td = TreeDict({"a": 1})
-        with td:
-            with td:
-                td["b"] = 2
+        with td, td:
+            td["b"] = 2
         assert td["b"] == 2
 
     def test_context_manager_with_exception(self) -> None:

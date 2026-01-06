@@ -10,11 +10,11 @@ Example:
     safe_is_instance(obj, "mypackage.models.BaseNode")
 """
 
-from functools import lru_cache
+from functools import cache
 from typing import Any
 
 
-@lru_cache(maxsize=None)
+@cache
 def _mro_fullnames(cls: type) -> set[str]:
     """
     Return a set of fully qualified class names (module.ClassName)

@@ -57,9 +57,7 @@ def _compose_filter(
             return False
         if ignore_empty and _is_empty_value(value):
             return False
-        if filter_fn and not filter_fn(key, value):
-            return False
-        return True
+        return not (filter_fn and not filter_fn(key, value))
 
     return predicate
 
@@ -240,7 +238,7 @@ def _wrap_nested_dicts(data: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, list) and value:
             if all(isinstance(x, str) for x in value):
                 # String list -> feature flags
-                result[key] = SmartOptions({x: True for x in value})
+                result[key] = SmartOptions(dict.fromkeys(value, True))
             elif all(isinstance(x, dict) for x in value):
                 # List of dicts -> index by first key of first element
                 result[key] = _index_list_of_dicts(value)
@@ -382,12 +380,7 @@ class SmartOptions(TreeDict):
 
     def __add__(self, other: "SmartOptions | Mapping[str, Any]") -> "SmartOptions":
         """Merge two SmartOptions. Right side overrides left side."""
-        if isinstance(other, SmartOptions):
-            other_data = other._data
-        elif isinstance(other, TreeDict):
-            other_data = other._data
-        else:
-            other_data = dict(other)
+        other_data = other._data if isinstance(other, (SmartOptions, TreeDict)) else dict(other)
         merged = self.as_dict() | other_data
         return SmartOptions(merged)
 
@@ -412,13 +405,8 @@ def dictExtract(mydict, prefix, pop=False, slice_prefix=True, is_list=False):
 
     cb = mydict.pop if pop else mydict.get
     reserved_names = ["class"]
-    return dict(
-        [
-            (
-                k[lprefix:] if k[lprefix:] not in reserved_names else f"_{k[lprefix:]}",
-                cb(k),
-            )
-            for k in list(mydict.keys())
-            if k.startswith(prefix)
-        ]
-    )
+    return {
+        k[lprefix:] if k[lprefix:] not in reserved_names else f"_{k[lprefix:]}": cb(k)
+        for k in list(mydict.keys())
+        if k.startswith(prefix)
+    }
