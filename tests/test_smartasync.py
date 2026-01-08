@@ -7,7 +7,7 @@ import asyncio
 
 import pytest
 
-from genro_toolbox.smartasync import smartasync
+from genro_toolbox.smartasync import reset_smartasync_cache, smartasync
 
 
 class SimpleManager:
@@ -112,12 +112,12 @@ class TestCacheReset:
     def test_cache_reset(self):
         """Cache can be reset for testing."""
         obj = SimpleManager()
-        obj.async_method._smartasync_reset_cache()
+        reset_smartasync_cache(obj.async_method)
 
         result = obj.async_method("test1")
         assert result == "Result: test1"
 
-        obj.async_method._smartasync_reset_cache()
+        reset_smartasync_cache(obj.async_method)
 
         result = obj.async_method("test2")
         assert result == "Result: test2"
@@ -160,7 +160,7 @@ class TestHelpfulErrorMessage:
     def test_sync_call_from_async_context_error(self, monkeypatch):
         """Helpful error when asyncio.run() called from running loop."""
         obj = SimpleManager()
-        obj.async_method._smartasync_reset_cache()
+        reset_smartasync_cache(obj.async_method)
 
         def fake_asyncio_run(coro):
             try:

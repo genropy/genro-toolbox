@@ -9,7 +9,7 @@ __version__ = "0.4.0"
 from .ascii_table import render_ascii_table, render_markdown_table
 from .decorators import extract_kwargs
 from .dict_utils import SmartOptions, dictExtract
-from .smartasync import SmartLock, smartasync, smartawait
+from .smartasync import SmartLock, reset_smartasync_cache, smartasync, smartawait
 from .string_utils import smartsplit
 from .tags_match import RuleError, tags_match
 from .treedict import TreeDict
@@ -30,5 +30,6 @@ __all__ = [
     "smartasync",
     "smartawait",
     "SmartLock",
+    "reset_smartasync_cache",
     "smartsplit",
 ]

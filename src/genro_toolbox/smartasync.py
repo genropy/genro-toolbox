@@ -12,6 +12,26 @@ import asyncio
 import functools
 
 
+def reset_smartasync_cache(func):
+    """Reset cache for a @smartasync decorated function.
+
+    Call this in tests to ensure clean state for async context detection.
+
+    Args:
+        func: A function decorated with @smartasync
+
+    Example:
+        from genro_toolbox import reset_smartasync_cache
+
+        def test_something():
+            obj = MyClass()
+            reset_smartasync_cache(obj.async_method)
+            # test code...
+    """
+    if hasattr(func, "_smartasync_reset_cache"):
+        func._smartasync_reset_cache()
+
+
 def smartasync(method):
     """Bidirectional decorator for methods and functions that work in both sync and async contexts.
 
