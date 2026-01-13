@@ -112,12 +112,12 @@ class TestCacheReset:
     def test_cache_reset(self):
         """Cache can be reset for testing."""
         obj = SimpleManager()
-        reset_smartasync_cache(obj.async_method)
+        reset_smartasync_cache()
 
         result = obj.async_method("test1")
         assert result == "Result: test1"
 
-        reset_smartasync_cache(obj.async_method)
+        reset_smartasync_cache()
 
         result = obj.async_method("test2")
         assert result == "Result: test2"
@@ -154,28 +154,24 @@ class TestErrorPropagation:
             await obj.buggy_method()
 
 
-class TestHelpfulErrorMessage:
-    """Tests for helpful error messages."""
+class TestLoopReuse:
+    """Tests for per-thread loop reuse."""
 
-    def test_sync_call_from_async_context_error(self, monkeypatch):
-        """Helpful error when asyncio.run() called from running loop."""
+    def test_loop_reused_across_calls(self):
+        """Same loop is reused for multiple calls in sync context."""
+        from genro_toolbox.smartasync import _async_handler
+
+        reset_smartasync_cache()
+
         obj = SimpleManager()
-        reset_smartasync_cache(obj.async_method)
+        obj.async_method("test1")
+        loop1 = _async_handler._thread_loops.get(__import__("threading").get_ident())
 
-        def fake_asyncio_run(coro):
-            try:
-                coro.close()
-            finally:
-                raise RuntimeError("asyncio.run() cannot be called from a running event loop")
+        obj.async_method("test2")
+        loop2 = _async_handler._thread_loops.get(__import__("threading").get_ident())
 
-        monkeypatch.setattr(asyncio, "run", fake_asyncio_run)
-
-        with pytest.raises(RuntimeError) as excinfo:
-            obj.async_method("boom")
-
-        message = str(excinfo.value)
-        assert "Cannot call async_method() synchronously" in message
-        assert "Use 'await async_method()' instead" in message
+        assert loop1 is loop2
+        assert not loop1.is_closed()
 
 
 class TestStandaloneFunctions:

@@ -10,26 +10,79 @@ This module is also available as a standalone package: pip install smartasync
 
 import asyncio
 import functools
+import threading
 
 
-def reset_smartasync_cache(func):
-    """Reset cache for a @smartasync decorated function.
+class AsyncHandler:
+    """Manages per-thread event loops for sync context execution.
 
-    Call this in tests to ensure clean state for async context detection.
+    Provides a single point of access to determine async/sync context
+    and manage event loops for each thread.
 
-    Args:
-        func: A function decorated with @smartasync
+    The current_thread_loop property returns:
+    - None: if running in async context (external loop exists)
+    - EventLoop: if running in sync context (creates/reuses per-thread loop)
+    """
+
+    def __init__(self):
+        self._thread_loops: dict[int, asyncio.AbstractEventLoop] = {}
+
+    @property
+    def current_thread_loop(self) -> asyncio.AbstractEventLoop | None:
+        """Get event loop for current thread, or None if in async context.
+
+        Returns:
+            None if an external event loop is running (async context),
+            otherwise returns (creating if needed) a loop for this thread.
+        """
+        try:
+            asyncio.get_running_loop()
+            return None
+        except RuntimeError:
+            pass
+
+        tid = threading.get_ident()
+        loop = self._thread_loops.get(tid)
+        if loop is None or loop.is_closed():
+            loop = asyncio.new_event_loop()
+            self._thread_loops[tid] = loop
+        return loop
+
+    @current_thread_loop.setter
+    def current_thread_loop(self, value):
+        """Set or remove the event loop for current thread.
+
+        Args:
+            value: EventLoop to set, or None to remove current thread's loop.
+        """
+        tid = threading.get_ident()
+        if value is None:
+            self._thread_loops.pop(tid, None)
+        else:
+            self._thread_loops[tid] = value
+
+    def reset(self):
+        """Clear all cached event loops."""
+        self._thread_loops.clear()
+
+
+# Module-level singleton
+_async_handler = AsyncHandler()
+
+
+def reset_smartasync_cache():
+    """Clear all cached event loops.
+
+    Call this in tests to ensure clean state.
 
     Example:
         from genro_toolbox import reset_smartasync_cache
 
         def test_something():
-            obj = MyClass()
-            reset_smartasync_cache(obj.async_method)
+            reset_smartasync_cache()
             # test code...
     """
-    if hasattr(func, "_smartasync_reset_cache"):
-        func._smartasync_reset_cache()
+    _async_handler.reset()
 
 
 def smartasync(method):
@@ -114,43 +167,19 @@ def smartasync(method):
     # Import time: Detect if method is async
     is_coro = asyncio.iscoroutinefunction(method)
 
-    # Asymmetric cache: only cache True (async context found)
-    _cached_has_loop = False
-
     @functools.wraps(method)
     def wrapper(*args, **kwargs):
-        nonlocal _cached_has_loop
-
-        # Context detection with asymmetric caching
-        if _cached_has_loop:
-            async_context = True
-        else:
-            try:
-                asyncio.get_running_loop()
-                # Found event loop! Cache it forever
-                async_context = True
-                _cached_has_loop = True
-            except RuntimeError:
-                # No event loop - sync context
-                # Don't cache False, always re-check next time
-                async_context = False
-
+        # Get loop for current thread (None if async context)
+        loop = _async_handler.current_thread_loop
+        async_context = loop is None
         async_method = is_coro
 
         # Dispatch based on (async_context, async_method) using pattern matching
         match (async_context, async_method):
             case (False, True):
-                # Sync context + Async method -> Run with asyncio.run()
+                # Sync context + Async method -> Run with per-thread loop
                 coro = method(*args, **kwargs)
-                try:
-                    return asyncio.run(coro)
-                except RuntimeError as e:
-                    if "cannot be called from a running event loop" in str(e):
-                        raise RuntimeError(
-                            f"Cannot call {method.__name__}() synchronously from within "
-                            f"an async context. Use 'await {method.__name__}()' instead."
-                        ) from e
-                    raise
+                return loop.run_until_complete(coro)
 
             case (False, False):
                 # Sync context + Sync method -> Direct call (pass-through)
@@ -163,13 +192,6 @@ def smartasync(method):
             case (True, False):
                 # Async context + Sync method -> Offload to thread (don't block event loop)
                 return asyncio.to_thread(method, *args, **kwargs)
-
-    # Add cache reset method for testing
-    def reset_cache():
-        nonlocal _cached_has_loop
-        _cached_has_loop = False
-
-    wrapper._smartasync_reset_cache = reset_cache
 
     return wrapper
 
