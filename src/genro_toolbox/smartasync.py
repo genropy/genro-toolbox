@@ -10,6 +10,7 @@ This module is also available as a standalone package: pip install smartasync
 
 import asyncio
 import functools
+import inspect
 import threading
 
 
@@ -196,28 +197,33 @@ def smartasync(method):
     return wrapper
 
 
-async def smartawait(result):
-    """Await result if it's a coroutine, otherwise return as-is.
+async def smartawait(value):
+    """Resolve nested awaitables recursively.
 
-    Useful when calling methods that may be sync or async (e.g., overridden
-    methods in subclasses where the base class doesn't know if the override
-    is async or not).
+    Useful when calling methods that may be sync or async, or when
+    awaitables return other awaitables (e.g., coroutine returning coroutine).
 
     Args:
-        result: Either a value or a coroutine that returns a value
+        value: Either a value or an awaitable that returns a value
 
     Returns:
-        The value (awaited if coroutine, direct otherwise)
+        The final resolved value (all awaitables unwrapped)
 
     Example:
         async def _do_load(self) -> Any:
             # self.load() might be sync or async depending on subclass
             result = await smartawait(self.load())
             return result
+
+        # Also handles nested awaitables:
+        async def get_loader():
+            return load_data()  # returns another coroutine
+
+        result = await smartawait(get_loader())  # resolves both levels
     """
-    if asyncio.iscoroutine(result):
-        return await result
-    return result
+    while inspect.isawaitable(value):
+        value = await value
+    return value
 
 
 class SmartLock:
