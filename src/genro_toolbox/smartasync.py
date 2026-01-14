@@ -27,6 +27,7 @@ class AsyncHandler:
 
     def __init__(self):
         self._thread_loops: dict[int, asyncio.AbstractEventLoop] = {}
+        self._reset_lock = threading.Lock()
 
     @property
     def current_thread_loop(self) -> asyncio.AbstractEventLoop | None:
@@ -46,6 +47,7 @@ class AsyncHandler:
         loop = self._thread_loops.get(tid)
         if loop is None or loop.is_closed():
             loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             self._thread_loops[tid] = loop
         return loop
 
@@ -63,8 +65,16 @@ class AsyncHandler:
             self._thread_loops[tid] = value
 
     def reset(self):
-        """Clear all cached event loops."""
-        self._thread_loops.clear()
+        """Clear all cached event loops. Thread-safe.
+
+        Closes all loops before clearing. Use only in tests when no
+        other threads are actively using smartasync.
+        """
+        with self._reset_lock:
+            for loop in self._thread_loops.values():
+                if not loop.is_closed():
+                    loop.close()
+            self._thread_loops.clear()
 
 
 # Module-level singleton
@@ -224,6 +234,43 @@ async def smartawait(value):
     while inspect.isawaitable(value):
         value = await value
     return value
+
+
+def smartcontinuation(value, on_resolved, *args, **kwargs):
+    """Apply a callback to a value, handling both sync and async cases.
+
+    If value is a coroutine, wraps it in a continuation that awaits the value
+    and then calls on_resolved. Otherwise calls on_resolved directly.
+
+    Args:
+        value: Either a value or a coroutine
+        on_resolved: Callback to apply to the resolved value
+        *args: Additional positional arguments for on_resolved
+        **kwargs: Additional keyword arguments for on_resolved
+
+    Returns:
+        If value is coroutine: a new coroutine that awaits and transforms
+        If value is not coroutine: the direct result of on_resolved(value, ...)
+
+    Example:
+        def extract_key(data, key):
+            return data[key]
+
+        # Works with sync values
+        result = smartcontinuation({"a": 1}, extract_key, "a")  # returns 1
+
+        # Works with async values
+        result = smartcontinuation(async_load(), extract_key, "a")  # returns coroutine
+        value = await result  # returns the extracted key
+    """
+    if inspect.isawaitable(value):
+
+        async def cont():
+            resolved = await value
+            return on_resolved(resolved, *args, **kwargs)
+
+        return cont()
+    return on_resolved(value, *args, **kwargs)
 
 
 class SmartLock:
