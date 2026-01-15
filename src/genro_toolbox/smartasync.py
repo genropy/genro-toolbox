@@ -6,6 +6,39 @@
 Automatic context detection for methods that work in both sync and async contexts.
 
 This module is also available as a standalone package: pip install smartasync
+
+Design Context:
+    This module is optimized for environments with pre-assigned thread workers
+    (e.g., Gunicorn with sync workers, Django, Flask). In these contexts, threads
+    are long-lived and reused across requests, so the per-thread loop pool provides
+    efficient event loop reuse without creation overhead.
+
+Caveats - Nested Mixed Calls:
+    When async code offloads sync code to a thread (via to_thread), and that sync
+    code calls async functions, those async functions MUST be decorated with
+    @smartasync to work correctly. Without the decorator, the sync code receives
+    a raw coroutine object it cannot use.
+
+    Problematic chain:
+        async A() -> sync B() [in thread] -> async C() [NO decorator] = BROKEN
+
+    Safe chain:
+        async A() -> sync B() [in thread] -> async C() [@smartasync] = WORKS
+
+    Best practice: Apply @smartasync only at the "leaf" level - the outermost
+    boundary where sync code calls async code. Avoid deep nesting of mixed calls.
+
+Inline Usage:
+    smartasync can be used inline without the decorator syntax, useful for
+    wrapping third-party async functions or one-off calls:
+
+        # Wrap and call in one line
+        result = smartasync(some_async_func)(arg1, arg2)
+
+        # Or wrap once, call multiple times
+        wrapped = smartasync(third_party_async_func)
+        result1 = wrapped(args1)
+        result2 = wrapped(args2)
 """
 
 import asyncio
@@ -101,27 +134,24 @@ def smartasync(method):
 
     Automatically detects whether the code is running in an async or sync
     context and adapts accordingly. Works in BOTH directions:
-    - Async methods/functions called from sync context (uses asyncio.run)
+    - Async methods/functions called from sync context (runs on per-thread loop)
     - Sync methods/functions called from async context (uses asyncio.to_thread)
 
     Features:
-    - Auto-detection of sync/async context using asyncio.get_running_loop()
-    - Asymmetric caching: caches True (async), always checks False (sync)
-    - Enhanced error handling with clear messages
+    - Dynamic context detection using asyncio.get_running_loop()
+    - Per-thread event loop reuse (no overhead from repeated loop creation)
     - Works with both async and sync methods and standalone functions
     - No configuration needed - just apply the decorator
     - Prevents blocking event loop when calling sync methods from async context
 
     How it works:
     - At import time: Checks if method is async using asyncio.iscoroutinefunction()
-    - At runtime: Detects if running in async context (checks for event loop)
-    - Asymmetric cache: Once async context is detected (True), it's cached forever
-    - Sync context (False) is never cached, always re-checked
-    - This allows transitioning from sync -> async, but not async -> sync (which is correct)
-    - Uses pattern matching to dispatch based on (has_loop, is_coroutine)
+    - At runtime: Detects if running in async context (checks for running event loop)
+    - Per-thread loop pool: Each sync thread gets its own reusable event loop
+    - Uses pattern matching to dispatch based on (async_context, is_coroutine)
 
     Execution scenarios (async_context, async_method):
-    - (False, True):  Sync context + Async method -> Execute with asyncio.run()
+    - (False, True):  Sync context + Async method -> Execute with loop.run_until_complete()
     - (False, False): Sync context + Sync method -> Direct call (pass-through)
     - (True, True):   Async context + Async method -> Return coroutine (for await)
     - (True, False):  Async context + Sync method -> Offload to thread (asyncio.to_thread)
@@ -360,7 +390,8 @@ class SmartLock:
     def reset(self):
         """Reset the lock state.
 
-        Clears any pending future. Use with caution - concurrent
-        callers waiting on a future will receive an error.
+        Cancels any pending future, causing waiters to receive CancelledError.
         """
+        if self._future is not None and not self._future.done():
+            self._future.cancel()
         self._future = None
