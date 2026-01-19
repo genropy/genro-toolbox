@@ -60,6 +60,7 @@ user-guide/treedict
 user-guide/tags-match
 user-guide/safe-is-instance
 user-guide/ascii-table
+user-guide/smartasync
 user-guide/best-practices
 examples/index
 api/reference
