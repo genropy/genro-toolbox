@@ -410,8 +410,7 @@ class TestSmartOptionsFromFile:
     def test_loads_yaml_with_nested(self, tmp_path):
         """Test loading YAML with nested structures."""
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 server:
   host: localhost
   port: 8080
@@ -423,8 +422,7 @@ apps:
     module: shop:ShopApp
   - name: office
     module: office:OfficeApp
-"""
-        )
+""")
 
         opts = SmartOptions(str(config_file))
         assert opts["server.host"] == "localhost"
