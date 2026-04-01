@@ -473,9 +473,74 @@ Return a dict filtered through `filter_fn`.
 
 **Returns**: Filtered dictionary
 
-## dictExtract (Internal)
+## DictObj
 
-Internal utility function used by `extract_kwargs`. Not part of the public API.
+```{eval-rst}
+.. autoclass:: genro_toolbox.DictObj
+   :members:
+```
+
+### Class Signature
+
+```python
+class DictObj(dict):
+    ...
+```
+
+A `dict` subclass that supports attribute-style access for reading, writing, and deleting.
+
+### Examples
+
+```python
+from genro_toolbox import DictObj
+
+ctx = DictObj()
+ctx.db = connection        # same as ctx["db"] = connection
+ctx.db.execute(...)        # dot-access read
+"db" in ctx                # True (dict-access)
+del ctx.session            # same as del ctx["session"]
+```
+
+Raises `AttributeError` (not `KeyError`) when accessing a missing attribute.
+
+## smartsplit
+
+```{eval-rst}
+.. autofunction:: genro_toolbox.smartsplit
+```
+
+### Function Signature
+
+```python
+def smartsplit(path: str, separator: str) -> list[str]
+```
+
+### Parameters
+
+**path** : `str`
+: The string to split.
+
+**separator** : `str`
+: The separator substring.
+
+### Returns
+
+**list[str]**
+: List of substrings with whitespace stripped. Escaped separators (prefixed with `\`) are preserved.
+
+### Examples
+
+```python
+from genro_toolbox import smartsplit
+
+smartsplit("a.b.c", ".")          # ['a', 'b', 'c']
+smartsplit(r"a\.b.c", ".")        # ['a\\.b', 'c']
+smartsplit("one , two , three", ",")  # ['one', 'two', 'three']
+```
+
+## dictExtract
+
+Utility function for extracting dict items by key prefix. Used internally by `extract_kwargs`.
 
 ```python
 def dictExtract(

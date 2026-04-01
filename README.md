@@ -32,7 +32,10 @@ pip install genro-toolbox
 
 - **SmartOptions** - Multi-source config with merge via `+` operator
 - **TreeDict** - Hierarchical dict with dot notation and path access
+- **DictObj** - Dict subclass with dot-access for attribute-style read/write
 - **extract_kwargs** - Decorator to group kwargs by prefix
+- **dictExtract** - Extract dict items by key prefix
+- **smartsplit** - Split strings honoring escaped separators
 - **get_uuid** - Sortable 22-char unique identifiers for distributed systems
 - **smartasync** - Unified sync/async API with automatic context detection
 - **safe_is_instance** - isinstance() without importing the class
@@ -269,6 +272,38 @@ class LegacyProcessor:
 async def main():
     proc = LegacyProcessor()
     result = await proc.cpu_intensive(data)  # Won't block event loop
+```
+
+### DictObj
+
+```python
+from genro_toolbox import DictObj
+
+ctx = DictObj()
+ctx.db = connection
+ctx.session = session_obj
+ctx.db.execute(...)   # dot-access
+"db" in ctx           # True (dict-access)
+del ctx.session       # works too
+```
+
+### smartsplit
+
+```python
+from genro_toolbox import smartsplit
+
+smartsplit("a.b.c", ".")          # ['a', 'b', 'c']
+smartsplit(r"a\.b.c", ".")        # ['a\\.b', 'c']  (escaped separator preserved)
+smartsplit("one , two , three", ",")  # ['one', 'two', 'three']  (strips whitespace)
+```
+
+### dictExtract
+
+```python
+from genro_toolbox import dictExtract
+
+kwargs = {"logging_level": "INFO", "logging_format": "json", "cache_ttl": 300}
+dictExtract(kwargs, "logging_")  # {'level': 'INFO', 'format': 'json'}
 ```
 
 ## Philosophy
