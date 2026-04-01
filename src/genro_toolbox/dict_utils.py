@@ -424,6 +424,17 @@ class DictObj(dict):
         "db" in ctx           # dict-access
     """
 
-    __getattr__ = dict.__getitem__
-    __setattr__ = dict.__setitem__  # type: ignore[assignment]
-    __delattr__ = dict.__delitem__  # type: ignore[assignment]
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        self[name] = value
+
+    def __delattr__(self, name: str) -> None:
+        try:
+            del self[name]
+        except KeyError:
+            raise AttributeError(name) from None
