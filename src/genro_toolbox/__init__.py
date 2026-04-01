@@ -8,7 +8,7 @@ __version__ = "0.6.2"
 
 from .ascii_table import render_ascii_table, render_markdown_table
 from .decorators import extract_kwargs
-from .dict_utils import SmartOptions, dictExtract
+from .dict_utils import DictObj, SmartOptions, dictExtract
 from .smartasync import (
     SmartLock,
     reset_smartasync_cache,
@@ -23,6 +23,7 @@ from .typeutils import safe_is_instance
 from .uid import get_uuid
 
 __all__ = [
+    "DictObj",
     "extract_kwargs",
     "SmartOptions",
     "dictExtract",

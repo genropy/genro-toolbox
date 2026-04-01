@@ -410,3 +410,20 @@ def dictExtract(mydict, prefix, pop=False, slice_prefix=True, is_list=False):
         for k in list(mydict.keys())
         if k.startswith(prefix)
     }
+
+
+class DictObj(dict):
+    """Dict with dot-access for attribute-style read/write.
+
+    Example::
+
+        ctx = DictObj()
+        ctx.db = connection
+        ctx.session = session_obj
+        ctx.db.execute(...)   # dot-access
+        "db" in ctx           # dict-access
+    """
+
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__  # type: ignore[assignment]
+    __delattr__ = dict.__delitem__  # type: ignore[assignment]
