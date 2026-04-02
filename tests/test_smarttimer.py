@@ -8,7 +8,6 @@ import pytest
 
 from genro_toolbox import cancel_timer, set_interval, set_timeout
 
-
 # --- Sync context tests ---
 
 

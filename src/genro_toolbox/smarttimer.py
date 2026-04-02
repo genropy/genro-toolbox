@@ -69,8 +69,9 @@ def _cleanup(timer_id: str) -> None:
         _timers.pop(timer_id, None)
 
 
-def _sync_timeout(timer_id: str, delay: float, callback: Callable,
-                  args: tuple, kwargs: dict) -> None:
+def _sync_timeout(
+    timer_id: str, delay: float, callback: Callable, args: tuple, kwargs: dict
+) -> None:
     """Execute a one-shot timer in sync context using threading.Timer."""
 
     def _run():
@@ -84,8 +85,9 @@ def _sync_timeout(timer_id: str, delay: float, callback: Callable,
     t.start()
 
 
-def _sync_interval(timer_id: str, delay: float, callback: Callable,
-                   args: tuple, kwargs: dict) -> None:
+def _sync_interval(
+    timer_id: str, delay: float, callback: Callable, args: tuple, kwargs: dict
+) -> None:
     """Execute a repeating timer in sync context using threading.Timer."""
     stop_event = threading.Event()
 
@@ -103,8 +105,9 @@ def _sync_interval(timer_id: str, delay: float, callback: Callable,
     t.start()
 
 
-async def _async_timeout(timer_id: str, delay: float, callback: Callable,
-                         args: tuple, kwargs: dict) -> None:
+async def _async_timeout(
+    timer_id: str, delay: float, callback: Callable, args: tuple, kwargs: dict
+) -> None:
     """Execute a one-shot timer in async context."""
     try:
         await asyncio.sleep(delay)
@@ -115,8 +118,9 @@ async def _async_timeout(timer_id: str, delay: float, callback: Callable,
         _cleanup(timer_id)
 
 
-async def _async_interval(timer_id: str, delay: float, callback: Callable,
-                          args: tuple, kwargs: dict) -> None:
+async def _async_interval(
+    timer_id: str, delay: float, callback: Callable, args: tuple, kwargs: dict
+) -> None:
     """Execute a repeating timer in async context."""
     try:
         while True:
@@ -128,8 +132,7 @@ async def _async_interval(timer_id: str, delay: float, callback: Callable,
         _cleanup(timer_id)
 
 
-def set_timeout(delay: float, callback: Callable,
-                *args: Any, **kwargs: Any) -> str:
+def set_timeout(delay: float, callback: Callable, *args: Any, **kwargs: Any) -> str:
     """Schedule a one-shot callback after delay seconds.
 
     Args:
@@ -145,8 +148,7 @@ def set_timeout(delay: float, callback: Callable,
 
     if _is_async_context():
         loop = asyncio.get_running_loop()
-        task = loop.create_task(_async_timeout(timer_id, delay, callback,
-                                               args, kwargs))
+        task = loop.create_task(_async_timeout(timer_id, delay, callback, args, kwargs))
         with _timers_lock:
             _timers[timer_id] = task
     else:
@@ -155,8 +157,7 @@ def set_timeout(delay: float, callback: Callable,
     return timer_id
 
 
-def set_interval(delay: float, callback: Callable,
-                 *args: Any, **kwargs: Any) -> str:
+def set_interval(delay: float, callback: Callable, *args: Any, **kwargs: Any) -> str:
     """Schedule a repeating callback every delay seconds.
 
     Args:
@@ -172,8 +173,7 @@ def set_interval(delay: float, callback: Callable,
 
     if _is_async_context():
         loop = asyncio.get_running_loop()
-        task = loop.create_task(_async_interval(timer_id, delay, callback,
-                                                args, kwargs))
+        task = loop.create_task(_async_interval(timer_id, delay, callback, args, kwargs))
         with _timers_lock:
             _timers[timer_id] = task
     else:
