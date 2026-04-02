@@ -167,7 +167,7 @@ class TestTimerIsolation:
     def test_multiple_timers_independent(self):
         r1, r2 = [], []
         t1 = set_timeout(0.05, r1.append, "a")
-        t2 = set_timeout(0.05, r2.append, "b")
+        set_timeout(0.05, r2.append, "b")
         cancel_timer(t1)
         time.sleep(0.15)
         assert r1 == []
@@ -181,7 +181,7 @@ class TestTimerIsolation:
             lst.append(val)
 
         t1 = set_timeout(0.05, cb, r1, "a")
-        t2 = set_timeout(0.05, cb, r2, "b")
+        set_timeout(0.05, cb, r2, "b")
         cancel_timer(t1)
         await asyncio.sleep(0.15)
         assert r1 == []

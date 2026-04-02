@@ -26,7 +26,8 @@ import asyncio
 import functools
 import inspect
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from .uid import get_uuid
 
@@ -197,9 +198,7 @@ def cancel_timer(timer_id: str) -> bool:
     if handle is None:
         return False
 
-    if isinstance(handle, asyncio.Task):
-        handle.cancel()
-    elif isinstance(handle, threading.Timer):
+    if isinstance(handle, (asyncio.Task, threading.Timer)):
         handle.cancel()
     elif isinstance(handle, threading.Event):
         handle.set()
