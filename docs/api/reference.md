@@ -538,6 +538,86 @@ smartsplit(r"a\.b.c", ".")        # ['a\\.b', 'c']
 smartsplit("one , two , three", ",")  # ['one', 'two', 'three']
 ```
 
+## smarttimer
+
+```{eval-rst}
+.. automodule:: genro_toolbox.smarttimer
+   :members: set_timeout, set_interval, cancel_timer
+```
+
+### set_timeout
+
+```python
+def set_timeout(delay: float, callback: Callable, *args, **kwargs) -> str
+```
+
+Schedule a one-shot callback after `delay` seconds. Returns a timer ID for cancellation.
+
+**Parameters**:
+- `delay`: Seconds to wait before executing callback
+- `callback`: Function to call (sync or async)
+- `*args, **kwargs`: Arguments forwarded to callback
+
+**Returns**: `str` — Timer ID
+
+### set_interval
+
+```python
+def set_interval(delay: float, callback: Callable, *args, **kwargs) -> str
+```
+
+Schedule a repeating callback every `delay` seconds. Returns a timer ID for cancellation.
+
+**Parameters**:
+- `delay`: Seconds between each callback execution
+- `callback`: Function to call (sync or async)
+- `*args, **kwargs`: Arguments forwarded to callback
+
+**Returns**: `str` — Timer ID
+
+### cancel_timer
+
+```python
+def cancel_timer(timer_id: str) -> bool
+```
+
+Cancel a timer by its ID.
+
+**Parameters**:
+- `timer_id`: The ID returned by `set_timeout` or `set_interval`
+
+**Returns**: `True` if the timer was found and cancelled, `False` otherwise
+
+### Context Detection
+
+| Context | Callback | Strategy |
+|---------|----------|----------|
+| Sync | Sync | threading.Timer, direct call |
+| Sync | Async | threading.Timer, temp event loop |
+| Async | Async | asyncio task, await |
+| Async | Sync | asyncio task, to_thread |
+
+### Examples
+
+```python
+from genro_toolbox import set_timeout, set_interval, cancel_timer
+
+# One-shot
+tid = set_timeout(2.0, print, "Hello!")
+
+# Repeating
+tid = set_interval(1.0, print, "tick")
+cancel_timer(tid)
+
+# Async callback
+async def notify(msg):
+    await send_notification(msg)
+
+set_timeout(5.0, notify, "done")
+```
+
+---
+
 ## dictExtract
 
 Utility function for extracting dict items by key prefix. Used internally by `extract_kwargs`.

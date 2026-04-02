@@ -15,11 +15,13 @@ genro-toolbox/
 │   ├── ascii_table.py   # ASCII/Markdown table rendering
 │   ├── decorators.py    # extract_kwargs decorator
 │   ├── dict_utils.py    # SmartOptions, filtered_dict, make_opts
+│   ├── smarttimer.py    # set_timeout, set_interval, cancel_timer
 │   └── typeutils.py     # safe_is_instance
 ├── tests/
 │   ├── test_ascii_table.py
 │   ├── test_decorators.py
 │   ├── test_dict_utils.py
+│   ├── test_smarttimer.py
 │   └── test_typeutils.py
 ├── pyproject.toml
 ├── LICENSE              # Apache 2.0
@@ -35,6 +37,9 @@ from genro_toolbox import (
     safe_is_instance,    # Type check without importing
     render_ascii_table,  # ASCII table rendering
     render_markdown_table,  # Markdown table rendering
+    set_timeout,         # One-shot timer (sync/async)
+    set_interval,        # Repeating timer (sync/async)
+    cancel_timer,        # Cancel a timer by ID
 )
 ```
 

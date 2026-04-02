@@ -38,6 +38,7 @@ pip install genro-toolbox
 - **smartsplit** - Split strings honoring escaped separators
 - **get_uuid** - Sortable 22-char unique identifiers for distributed systems
 - **smartasync** - Unified sync/async API with automatic context detection
+- **smarttimer** - Non-blocking timers (setTimeout/setInterval) with sync/async detection
 - **safe_is_instance** - isinstance() without importing the class
 - **render_ascii_table** - ASCII table rendering with formatting
 - **render_markdown_table** - Markdown table rendering
@@ -304,6 +305,32 @@ from genro_toolbox import dictExtract
 
 kwargs = {"logging_level": "INFO", "logging_format": "json", "cache_ttl": 300}
 dictExtract(kwargs, "logging_")  # {'level': 'INFO', 'format': 'json'}
+```
+
+### smarttimer
+
+Non-blocking timers with automatic sync/async detection:
+
+```python
+from genro_toolbox import set_timeout, set_interval, cancel_timer
+
+# Token refresh: renew 5 min before expiry (inside a server)
+set_timeout(expires_in - 300, refresh_token)
+
+# Heartbeat: ping every 30s (works in both sync and async)
+hb = set_interval(30.0, ws.send_json, {"type": "ping"})
+
+# Cancel when done
+cancel_timer(hb)
+
+# Async callbacks work transparently
+async def check_job(job_id):
+    status = await api.get_status(job_id)
+    if status == "completed":
+        cancel_timer(pollers[job_id])
+
+pollers = {}
+pollers["j1"] = set_interval(5.0, check_job, "j1")
 ```
 
 ## Philosophy
