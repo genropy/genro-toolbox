@@ -57,6 +57,13 @@ timer_id = set_interval(1.0, print, "tick")
 cancel_timer(timer_id)
 ```
 
+Use `initial_delay` to control the delay before the first execution (defaults to `delay`):
+
+```python
+# Check immediately (after 1s), then every 30s
+tid = set_interval(30.0, check_status, initial_delay=1)
+```
+
 ### cancel_timer
 
 Cancel a pending timer by its ID. Returns `True` if the timer was found and cancelled, `False` otherwise:

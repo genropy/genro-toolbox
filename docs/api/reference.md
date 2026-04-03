@@ -563,7 +563,8 @@ Schedule a one-shot callback after `delay` seconds. Returns a timer ID for cance
 ### set_interval
 
 ```python
-def set_interval(delay: float, callback: Callable, *args, **kwargs) -> str
+def set_interval(delay: float, callback: Callable, *args,
+                 initial_delay: float | None = None, **kwargs) -> str
 ```
 
 Schedule a repeating callback every `delay` seconds. Returns a timer ID for cancellation.
@@ -571,6 +572,7 @@ Schedule a repeating callback every `delay` seconds. Returns a timer ID for canc
 **Parameters**:
 - `delay`: Seconds between each callback execution
 - `callback`: Function to call (sync or async)
+- `initial_delay`: Delay before first execution (defaults to `delay`)
 - `*args, **kwargs`: Arguments forwarded to callback
 
 **Returns**: `str` — Timer ID

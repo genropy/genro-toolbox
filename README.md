@@ -317,8 +317,8 @@ from genro_toolbox import set_timeout, set_interval, cancel_timer
 # Token refresh: renew 5 min before expiry (inside a server)
 set_timeout(expires_in - 300, refresh_token)
 
-# Heartbeat: ping every 30s (works in both sync and async)
-hb = set_interval(30.0, ws.send_json, {"type": "ping"})
+# Heartbeat: ping every 30s, start after 1s (works in both sync and async)
+hb = set_interval(30.0, ws.send_json, {"type": "ping"}, initial_delay=1)
 
 # Cancel when done
 cancel_timer(hb)

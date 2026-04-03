@@ -163,6 +163,50 @@ class TestAsyncInterval:
         assert len(result) >= 2
 
 
+class TestInitialDelay:
+    def test_sync_initial_delay_shorter(self):
+        result = []
+        tid = set_interval(0.2, result.append, "tick", initial_delay=0.05)
+        time.sleep(0.15)
+        cancel_timer(tid)
+        assert len(result) == 1
+
+    def test_sync_initial_delay_default(self):
+        result = []
+        tid = set_interval(0.1, result.append, "tick")
+        time.sleep(0.05)
+        assert len(result) == 0
+        time.sleep(0.15)
+        cancel_timer(tid)
+        assert len(result) >= 1
+
+    @pytest.mark.asyncio
+    async def test_async_initial_delay_shorter(self):
+        result = []
+
+        async def cb(val):
+            result.append(val)
+
+        tid = set_interval(0.2, cb, "tick", initial_delay=0.05)
+        await asyncio.sleep(0.15)
+        cancel_timer(tid)
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_async_initial_delay_default(self):
+        result = []
+
+        async def cb(val):
+            result.append(val)
+
+        tid = set_interval(0.1, cb, "tick")
+        await asyncio.sleep(0.05)
+        assert len(result) == 0
+        await asyncio.sleep(0.15)
+        cancel_timer(tid)
+        assert len(result) >= 1
+
+
 class TestTimerIsolation:
     def test_multiple_timers_independent(self):
         r1, r2 = [], []
