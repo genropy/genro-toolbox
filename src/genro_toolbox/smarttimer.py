@@ -87,12 +87,21 @@ def _sync_timeout(
 
 
 def _sync_interval(
-    timer_id: str, delay: float, callback: Callable, args: tuple, kwargs: dict
+    timer_id: str,
+    delay: float,
+    callback: Callable,
+    args: tuple,
+    kwargs: dict,
+    initial_delay: float | None = None,
 ) -> None:
     """Execute a repeating timer in sync context using threading.Timer."""
     stop_event = threading.Event()
 
     def _run():
+        first_delay = initial_delay if initial_delay is not None else delay
+        stop_event.wait(first_delay)
+        if not stop_event.is_set():
+            _invoke_sync(callback, *args, **kwargs)
         while not stop_event.is_set():
             stop_event.wait(delay)
             if stop_event.is_set():
@@ -120,10 +129,18 @@ async def _async_timeout(
 
 
 async def _async_interval(
-    timer_id: str, delay: float, callback: Callable, args: tuple, kwargs: dict
+    timer_id: str,
+    delay: float,
+    callback: Callable,
+    args: tuple,
+    kwargs: dict,
+    initial_delay: float | None = None,
 ) -> None:
     """Execute a repeating timer in async context."""
     try:
+        first_delay = initial_delay if initial_delay is not None else delay
+        await asyncio.sleep(first_delay)
+        await _invoke_async(callback, *args, **kwargs)
         while True:
             await asyncio.sleep(delay)
             await _invoke_async(callback, *args, **kwargs)
@@ -158,13 +175,20 @@ def set_timeout(delay: float, callback: Callable, *args: Any, **kwargs: Any) -> 
     return timer_id
 
 
-def set_interval(delay: float, callback: Callable, *args: Any, **kwargs: Any) -> str:
+def set_interval(
+    delay: float,
+    callback: Callable,
+    *args: Any,
+    initial_delay: float | None = None,
+    **kwargs: Any,
+) -> str:
     """Schedule a repeating callback every delay seconds.
 
     Args:
         delay: Seconds between each callback execution.
         callback: Function to call (sync or async).
         *args: Positional arguments for callback.
+        initial_delay: Delay before first execution. Defaults to delay.
         **kwargs: Keyword arguments for callback.
 
     Returns:
@@ -174,11 +198,13 @@ def set_interval(delay: float, callback: Callable, *args: Any, **kwargs: Any) ->
 
     if _is_async_context():
         loop = asyncio.get_running_loop()
-        task = loop.create_task(_async_interval(timer_id, delay, callback, args, kwargs))
+        task = loop.create_task(
+            _async_interval(timer_id, delay, callback, args, kwargs, initial_delay)
+        )
         with _timers_lock:
             _timers[timer_id] = task
     else:
-        _sync_interval(timer_id, delay, callback, args, kwargs)
+        _sync_interval(timer_id, delay, callback, args, kwargs, initial_delay)
 
     return timer_id
 
