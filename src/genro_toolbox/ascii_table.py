@@ -158,19 +158,10 @@ def wrap_row(row, widths):
     result = []
     for cell, width in zip(row, widths, strict=False):
         s = str(cell)
-        # Check if any word is longer than width
-        words = s.split()
-        has_long_word = any(len(w) > width for w in words)
-        if has_long_word:
-            # Must break long words
-            result.append(
-                textwrap.wrap(s, width, break_long_words=True, break_on_hyphens=False) or [""]
-            )
-        else:
-            # Can wrap without breaking words
-            result.append(
-                textwrap.wrap(s, width, break_long_words=False, break_on_hyphens=False) or [""]
-            )
+        has_long_word = any(len(w) > width for w in s.split())
+        result.append(
+            textwrap.wrap(s, width, break_long_words=has_long_word, break_on_hyphens=False) or [""]
+        )
     return result
 
 
@@ -194,20 +185,10 @@ def draw_table(headers, rows, max_width=DEFAULT_MAX_WIDTH):
     def sep():
         return "+" + "+".join("-" * w for w in widths) + "+"
 
-    out = [sep()]
-    for line in merge_wrapped(wrap_row(names, widths)):
-        out.append(
-            "|"
-            + "|".join(
-                apply_align(txt, w, h.get("align", "left"))
-                for txt, w, h in zip(line, widths, headers, strict=False)
-            )
-            + "|"
-        )
-    out.append(sep())
-    for row in rows:
-        for line in merge_wrapped(wrap_row(row, widths)):
-            out.append(
+    def format_row(row_data):
+        lines = []
+        for line in merge_wrapped(wrap_row(row_data, widths)):
+            lines.append(
                 "|"
                 + "|".join(
                     apply_align(txt, w, h.get("align", "left"))
@@ -215,6 +196,13 @@ def draw_table(headers, rows, max_width=DEFAULT_MAX_WIDTH):
                 )
                 + "|"
             )
+        return lines
+
+    out = [sep()]
+    out.extend(format_row(names))
+    out.append(sep())
+    for row in rows:
+        out.extend(format_row(row))
         out.append(sep())
     return "\n".join(out)
 
