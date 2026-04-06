@@ -17,8 +17,6 @@ __all__ = ["tags_match", "RuleError"]
 class RuleError(ValueError):
     """Raised when a rule expression is invalid."""
 
-    pass
-
 
 def tags_match(
     rule: str,
@@ -63,9 +61,6 @@ def tags_match(
 class _TagParser:
     """Recursive descent parser for tag expressions."""
 
-    # Keywords (case-insensitive)
-    _KEYWORDS = {"and", "or", "not"}
-
     # Token patterns
     _TOKEN_RE = re.compile(
         r"""
@@ -86,7 +81,6 @@ class _TagParser:
         self._rule = rule
         self._values = values
         self._max_depth = max_depth
-        self._pos = 0
         self._depth = 0
         self._tokens: list[tuple[str, str]] = []
         self._token_idx = 0

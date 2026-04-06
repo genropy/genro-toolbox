@@ -122,8 +122,6 @@ async def _async_timeout(
     try:
         await asyncio.sleep(delay)
         await _invoke_async(callback, *args, **kwargs)
-    except asyncio.CancelledError:
-        pass
     finally:
         _cleanup(timer_id)
 
@@ -144,8 +142,6 @@ async def _async_interval(
         while True:
             await asyncio.sleep(delay)
             await _invoke_async(callback, *args, **kwargs)
-    except asyncio.CancelledError:
-        pass
     finally:
         _cleanup(timer_id)
 

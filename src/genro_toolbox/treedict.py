@@ -65,8 +65,7 @@ class TreeDict:
 
     async def __aexit__(self, *args: Any) -> None:
         """Release async lock."""
-        if self._async_lock is not None:
-            self._async_lock.release()
+        self._async_lock.release()
 
     def _wrap(self, value: Any) -> Any:
         """Wrap nested dicts as TreeDict, leave other values unchanged.
@@ -116,10 +115,10 @@ class TreeDict:
             if is_list_idx:
                 if not isinstance(current, list):
                     return None
-                idx = key
-                if not isinstance(idx, int) or idx < 0 or idx >= len(current):
+                assert isinstance(key, int)
+                if key < 0 or key >= len(current):
                     return None
-                current = current[idx]
+                current = current[key]
                 if isinstance(current, dict) and not isinstance(current, TreeDict):
                     current = TreeDict(current)
             elif isinstance(current, TreeDict):
@@ -141,19 +140,16 @@ class TreeDict:
             next_is_list, _ = self._parse_key(parts[i + 1])
 
             if is_list_idx:
-                idx = key
-                if not isinstance(idx, int):
-                    raise TypeError(f"Invalid list index: {part}")
+                assert isinstance(key, int)
                 if not isinstance(current, list):
                     raise TypeError(f"Cannot index non-list with {part}")
-                while len(current) <= idx:
+                while len(current) <= key:
                     current.append(None)
-                if current[idx] is None:
-                    current[idx] = [] if next_is_list else TreeDict()
-                current = current[idx]
+                if current[key] is None:
+                    current[key] = [] if next_is_list else TreeDict()
+                current = current[key]
             else:
-                if not isinstance(key, str):
-                    raise TypeError(f"Invalid key: {part}")
+                assert isinstance(key, str)
                 if isinstance(current, TreeDict):
                     if key not in current._data or current._data[key] is None:
                         current._data[key] = [] if next_is_list else TreeDict()
@@ -165,17 +161,14 @@ class TreeDict:
         is_list_idx, key = self._parse_key(last_part)
 
         if is_list_idx:
-            idx = key
-            if not isinstance(idx, int):
-                raise TypeError(f"Invalid list index: {last_part}")
+            assert isinstance(key, int)
             if not isinstance(current, list):
                 raise TypeError(f"Cannot index non-list with {last_part}")
-            while len(current) <= idx:
+            while len(current) <= key:
                 current.append(None)
-            current[idx] = self._wrap(value)
+            current[key] = self._wrap(value)
         elif isinstance(current, TreeDict):
-            if not isinstance(key, str):
-                raise TypeError(f"Invalid key: {last_part}")
+            assert isinstance(key, str)
             current._data[key] = self._wrap(value)
         else:
             raise TypeError(f"Cannot set attribute on {type(current)}")
@@ -194,10 +187,10 @@ class TreeDict:
             if is_list_idx:
                 if not isinstance(current, list):
                     raise KeyError(path)
-                idx = key
-                if not isinstance(idx, int) or idx < 0 or idx >= len(current):
+                assert isinstance(key, int)
+                if key < 0 or key >= len(current):
                     raise KeyError(path)
-                current = current[idx]
+                current = current[key]
             elif isinstance(current, TreeDict):
                 current = current._data.get(key)
             else:
@@ -209,13 +202,12 @@ class TreeDict:
         if is_list_idx:
             if not isinstance(current, list):
                 raise KeyError(path)
-            idx = key
-            if not isinstance(idx, int) or idx < 0 or idx >= len(current):
+            assert isinstance(key, int)
+            if key < 0 or key >= len(current):
                 raise KeyError(path)
-            del current[idx]
+            del current[key]
         elif isinstance(current, TreeDict):
-            if not isinstance(key, str):
-                raise KeyError(path)
+            assert isinstance(key, str)
             if key not in current._data:
                 raise KeyError(path)
             del current._data[key]

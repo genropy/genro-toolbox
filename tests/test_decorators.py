@@ -138,17 +138,16 @@ class TestExtractKwargsBasic:
         assert result["cache"] == {"ttl": 300}
 
     def test_non_dict_kwargs_parameter(self):
-        """Test that non-dict values for {prefix}_kwargs are handled gracefully."""
+        """Test that non-dict values for {prefix}_kwargs raise TypeError."""
+        import pytest
 
         @extract_kwargs(logging=True)
         def func(logging_kwargs=None, **kwargs):
             return logging_kwargs
 
-        # Pass a non-dict value for logging_kwargs (edge case)
-        result = func(logging_kwargs=123, logging_level="INFO")
-
-        # Should convert to dict and merge with extracted kwargs
-        assert result == {"level": "INFO"}
+        # Pass a non-dict value for logging_kwargs — must raise TypeError
+        with pytest.raises(TypeError, match="logging_kwargs must be a dict"):
+            func(logging_kwargs=123, logging_level="INFO")
 
     def test_extract_with_non_true_non_dict_value(self):
         """Test extraction with values other than True or dict."""

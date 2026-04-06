@@ -399,8 +399,6 @@ def dictExtract(mydict, prefix, pop=False, slice_prefix=True, is_list=False):
     :param is_list: reserved for future use (currently not used)
     :returns: a dict of the items with keys starting with prefix"""
 
-    # FIXME: the is_list parameter is never used.
-
     lprefix = len(prefix) if slice_prefix else 0
 
     cb = mydict.pop if pop else mydict.get

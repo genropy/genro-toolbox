@@ -7,10 +7,10 @@ from __future__ import annotations
 def smartsplit(path: str, separator: str) -> list[str]:
     """Split a string by separator, ignoring escaped occurrences."""
     escape = "\\" + separator
-    if escape in path:
+    has_escape = escape in path
+    if has_escape:
         path = path.replace(escape, chr(1))
-        path_list = path.split(separator)
-        path_list = [x.strip().replace(chr(1), escape) for x in path_list]
-    else:
-        path_list = [x.strip() for x in path.split(separator)]
+    path_list = [x.strip() for x in path.split(separator)]
+    if has_escape:
+        path_list = [x.replace(chr(1), escape) for x in path_list]
     return path_list

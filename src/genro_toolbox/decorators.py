@@ -67,15 +67,9 @@ def extract_kwargs(
     def decorator(func: F) -> F:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Check if this is a method (has self) or function
-            # For methods: self is args[0]
-            # For functions: no self
-            has_self = len(args) > 0 and hasattr(args[0].__class__, func.__name__)
-            self_arg = args[0] if has_self else None
-
-            # Call adapter if specified and this is a method
-            if _adapter and self_arg is not None:
-                adapter_method = getattr(self_arg, _adapter, None)
+            # Call adapter if specified (assumes method usage with self as args[0])
+            if _adapter and args:
+                adapter_method = getattr(args[0], _adapter, None)
                 if adapter_method is not None:
                     adapter_method(kwargs)
 
@@ -88,8 +82,7 @@ def extract_kwargs(
                 if current is None:
                     current = {}
                 elif not isinstance(current, dict):
-                    # Edge case: someone passed non-dict, convert to dict
-                    current = {}
+                    raise TypeError(f"{grp_key} must be a dict, got {type(current).__name__}")
 
                 # Determine extraction options based on extract_value
                 if extract_value is True:
