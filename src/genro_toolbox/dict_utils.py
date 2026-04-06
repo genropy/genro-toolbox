@@ -4,6 +4,7 @@ Dictionary utilities for Genro-Toolbox.
 Provides utilities for dict manipulation used across the library.
 """
 
+import inspect
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -79,7 +80,6 @@ def _extract_signature_info(
     func: Callable[..., Any],
 ) -> tuple[dict[str, Any], dict[str, type], list[str]]:
     """Extract defaults, types, and positional params from callable signature."""
-    import inspect
     from typing import get_type_hints
 
     sig = inspect.signature(func)
