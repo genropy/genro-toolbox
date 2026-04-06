@@ -60,7 +60,9 @@ def _compose_filter(
             return False
         if ignore_empty and _is_empty_value(value):
             return False
-        return not (filter_fn and not filter_fn(key, value))
+        if filter_fn:
+            return filter_fn(key, value)
+        return True
 
     return predicate
 
@@ -392,22 +394,22 @@ class SmartOptions(TreeDict):
         return f"SmartOptions({self.as_dict()})"
 
 
-def dictExtract(mydict, prefix, pop=False, slice_prefix=True, is_list=False):
+def dictExtract(source_dict, prefix, pop=False, slice_prefix=True, is_list=False):
     """Return a dict of the items with keys starting with prefix.
 
-    :param mydict: sourcedict
+    :param source_dict: source dictionary
     :param prefix: the prefix of the items you need to extract
-    :param pop: removes the items from the sourcedict
+    :param pop: removes the items from the source dictionary
     :param slice_prefix: shortens the keys of the output dict removing the prefix
     :param is_list: reserved for future use (currently not used)
     :returns: a dict of the items with keys starting with prefix"""
 
     lprefix = len(prefix) if slice_prefix else 0
 
-    cb = mydict.pop if pop else mydict.get
+    extract_fn = source_dict.pop if pop else source_dict.get
     return {
-        k[lprefix:] if k[lprefix:] not in _RESERVED_ATTR_NAMES else f"_{k[lprefix:]}": cb(k)
-        for k in list(mydict.keys())
+        k[lprefix:] if k[lprefix:] not in _RESERVED_ATTR_NAMES else f"_{k[lprefix:]}": extract_fn(k)
+        for k in list(source_dict.keys())
         if k.startswith(prefix)
     }
 

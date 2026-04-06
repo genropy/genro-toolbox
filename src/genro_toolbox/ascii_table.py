@@ -24,10 +24,10 @@ def normalize_date_format(fmt: str) -> str:
         "MM": "%M",
         "SS": "%S",
     }
-    out = fmt
+    result = fmt
     for k, v in mapping.items():
-        out = out.replace(k, v)
-    return out
+        result = result.replace(k, v)
+    return result
 
 
 def parse_bool(value):
@@ -85,14 +85,14 @@ def build_tree(paths, sep):
 
 
 def flatten_tree(tree, level=0, prefix=""):
-    out = []
+    nodes = []
     for key in sorted(tree.keys()):
         full = prefix + key if prefix == "" else prefix + "/" + key
         children = tree[key]
         is_leaf = len(children) == 0
-        out.append((full, key, level, is_leaf))
-        out.extend(flatten_tree(children, level + 1, full))
-    return out
+        nodes.append((full, key, level, is_leaf))
+        nodes.extend(flatten_tree(children, level + 1, full))
+    return nodes
 
 
 def apply_hierarchy(headers, rows):
@@ -101,15 +101,15 @@ def apply_hierarchy(headers, rows):
             continue
         sep = h["hierarchy"].get("sep", "/")
         original = [r[idx] for r in rows]
-        mapvals = {r[idx]: r[1:] for r in rows}
+        values_by_path = {r[idx]: r[1:] for r in rows}
         tree = build_tree(original, sep)
-        tri = flatten_tree(tree)
-        other = len(rows[0]) - 1
-        new = []
-        for full, label, lvl, is_leaf in tri:
-            values = mapvals[full] if is_leaf and full in mapvals else [""] * other
-            new.append(["  " * lvl + label] + values)
-        return new
+        tree_items = flatten_tree(tree)
+        other_col_count = len(rows[0]) - 1
+        expanded_rows = []
+        for full, label, level, is_leaf in tree_items:
+            values = values_by_path[full] if is_leaf and full in values_by_path else [""] * other_col_count
+            expanded_rows.append(["  " * level + label] + values)
+        return expanded_rows
     return rows
 
 
@@ -175,8 +175,8 @@ def wrap_row(row, widths):
 
 
 def merge_wrapped(wrapped):
-    ml = max(len(col) for col in wrapped)
-    return [[col[i] if i < len(col) else "" for col in wrapped] for i in range(ml)]
+    max_lines = max(len(col) for col in wrapped)
+    return [[col[i] if i < len(col) else "" for col in wrapped] for i in range(max_lines)]
 
 
 def apply_align(t, w, align):

@@ -144,10 +144,9 @@ def smartasync(method):
         # Get loop for current thread (None if async context)
         loop = _async_handler.current_thread_loop
         async_context = loop is None
-        async_method = is_coro
 
-        # Dispatch based on (async_context, async_method) using pattern matching
-        match (async_context, async_method):
+        # Dispatch based on (async_context, is_coro) using pattern matching
+        match (async_context, is_coro):
             case (False, True):
                 # Sync context + Async method -> Run with per-thread loop
                 coro = method(*args, **kwargs)
@@ -213,7 +212,7 @@ class SmartLock:
                 return await self._future
 
             # Create Future for other callers to await
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             self._future = loop.create_future()
 
             try:

@@ -79,11 +79,11 @@ def _sync_timeout(
         _cleanup(timer_id)
         _invoke_sync(callback, *args, **kwargs)
 
-    t = threading.Timer(delay, _run)
-    t.daemon = True
+    timer_thread = threading.Timer(delay, _run)
+    timer_thread.daemon = True
     with _timers_lock:
-        _timers[timer_id] = t
-    t.start()
+        _timers[timer_id] = timer_thread
+    timer_thread.start()
 
 
 def _sync_interval(
@@ -111,8 +111,8 @@ def _sync_interval(
 
     with _timers_lock:
         _timers[timer_id] = stop_event
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
+    interval_thread = threading.Thread(target=_run, daemon=True)
+    interval_thread.start()
 
 
 async def _async_timeout(

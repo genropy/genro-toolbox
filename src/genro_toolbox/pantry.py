@@ -99,10 +99,9 @@ class Pantry:
             return pkg_name.replace("-", "_")
 
         top_level = dist.read_text("top_level.txt")
-        if top_level:
-            first = next((ln for ln in top_level.splitlines() if ln.strip()), None)
-            if first:
-                return first.strip()
+        first = next((ln for ln in (top_level or "").splitlines() if ln.strip()), None)
+        if first:
+            return first.strip()
 
         if dist.files:
             for fp in dist.files:
