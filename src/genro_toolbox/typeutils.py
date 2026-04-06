@@ -1,14 +1,4 @@
-"""
-Utilities for checking whether an object is an instance of a class
-identified only by its full class path (module.ClassName),
-without importing the target class.
-
-This avoids circular imports and still behaves like ``isinstance``,
-including subclass recognition.
-
-Example:
-    safe_is_instance(obj, "mypackage.models.BaseNode")
-"""
+"""Import-free isinstance check using a fully-qualified class name string."""
 
 from functools import cache
 from typing import Any
@@ -26,14 +16,5 @@ def _mro_fullnames(cls: type) -> set[str]:
 
 
 def safe_is_instance(obj: Any, class_full_name: str) -> bool:
-    """
-    Return True if ``obj`` is an instance of the class identified by
-    ``class_full_name`` or any of its subclasses — without importing
-    the class.
-
-    Args:
-        obj: The object to check.
-        class_full_name: The fully qualified class name,
-            e.g. ``"mypkg.models.BaseNode"``.
-    """
+    """Return True if obj is an instance of class_full_name (checked via MRO, no import)."""
     return class_full_name in _mro_fullnames(obj.__class__)

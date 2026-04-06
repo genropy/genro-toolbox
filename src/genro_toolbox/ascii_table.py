@@ -1,10 +1,4 @@
-"""
-ASCII and Markdown table rendering utilities.
-
-Provides functions for rendering data as formatted ASCII tables
-or Markdown tables with support for various data types, alignment,
-and hierarchical data.
-"""
+"""ASCII and Markdown table rendering utilities."""
 
 import re
 import textwrap

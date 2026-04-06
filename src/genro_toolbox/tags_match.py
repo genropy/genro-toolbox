@@ -3,43 +3,8 @@
 
 """Boolean expression matcher for tag-based filtering.
 
-Evaluates boolean expressions against a set of tags using a recursive
-descent parser. No eval() is used - direct evaluation during parsing.
-
-Operators:
-    - ``|`` or ``or`` : OR
-    - ``&`` or ``and`` : AND
-    - ``!`` or ``not`` : NOT (prefix)
-    - ``()`` : grouping
-
-Keywords ``and``, ``or``, ``not`` are case-insensitive.
-
-Examples::
-
-    from genro_toolbox import tags_match
-
-    # Simple tag check
-    tags_match("admin", {"admin", "user"})  # True
-    tags_match("admin", {"user"})  # False
-
-    # OR (pipe or keyword)
-    tags_match("admin|public", {"admin"})  # True
-    tags_match("admin or public", {"admin"})  # True
-
-    # AND (ampersand or keyword)
-    tags_match("admin&internal", {"admin", "internal"})  # True
-    tags_match("admin and internal", {"admin", "internal"})  # True
-    tags_match("admin&internal", {"admin"})  # False
-
-    # NOT (exclamation or keyword)
-    tags_match("!admin", {"public"})  # True
-    tags_match("not admin", {"public"})  # True
-    tags_match("!admin", {"admin"})  # False
-
-    # Complex expressions
-    tags_match("(admin|public)&!internal", {"admin"})  # True
-    tags_match("(admin or public) and not internal", {"admin"})  # True
-    tags_match("(admin|public)&!internal", {"admin", "internal"})  # False
+Evaluates expressions like ``"admin & !internal"`` against a set of tags.
+Supports ``|``/``or``, ``&``/``and``, ``!``/``not``, and parentheses.
 """
 
 from __future__ import annotations

@@ -151,17 +151,7 @@ async def _async_interval(
 
 
 def set_timeout(delay: float, callback: Callable, *args: Any, **kwargs: Any) -> str:
-    """Schedule a one-shot callback after delay seconds.
-
-    Args:
-        delay: Seconds to wait before executing callback.
-        callback: Function to call (sync or async).
-        *args: Positional arguments for callback.
-        **kwargs: Keyword arguments for callback.
-
-    Returns:
-        Timer ID string for cancellation.
-    """
+    """Schedule a one-shot callback after delay seconds. Returns timer ID."""
     timer_id = get_uuid()
 
     if _is_async_context():
@@ -182,18 +172,7 @@ def set_interval(
     initial_delay: float | None = None,
     **kwargs: Any,
 ) -> str:
-    """Schedule a repeating callback every delay seconds.
-
-    Args:
-        delay: Seconds between each callback execution.
-        callback: Function to call (sync or async).
-        *args: Positional arguments for callback.
-        initial_delay: Delay before first execution. Defaults to delay.
-        **kwargs: Keyword arguments for callback.
-
-    Returns:
-        Timer ID string for cancellation.
-    """
+    """Schedule a repeating callback every delay seconds. Returns timer ID."""
     timer_id = get_uuid()
 
     if _is_async_context():
@@ -210,14 +189,7 @@ def set_interval(
 
 
 def cancel_timer(timer_id: str) -> bool:
-    """Cancel a timer by its ID.
-
-    Args:
-        timer_id: The ID returned by set_timeout or set_interval.
-
-    Returns:
-        True if the timer was found and cancelled, False otherwise.
-    """
+    """Cancel a timer by its ID. Returns True if found and cancelled."""
     with _timers_lock:
         handle = _timers.pop(timer_id, None)
 

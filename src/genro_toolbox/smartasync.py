@@ -130,80 +130,11 @@ def reset_smartasync_cache():
 
 
 def smartasync(method):
-    """Bidirectional decorator for methods and functions that work in both sync and async contexts.
+    """Decorator that adapts sync/async functions to work in both contexts.
 
-    Automatically detects whether the code is running in an async or sync
-    context and adapts accordingly. Works in BOTH directions:
-    - Async methods/functions called from sync context (runs on per-thread loop)
-    - Sync methods/functions called from async context (uses asyncio.to_thread)
-
-    Features:
-    - Dynamic context detection using asyncio.get_running_loop()
-    - Per-thread event loop reuse (no overhead from repeated loop creation)
-    - Works with both async and sync methods and standalone functions
-    - No configuration needed - just apply the decorator
-    - Prevents blocking event loop when calling sync methods from async context
-
-    How it works:
-    - At import time: Checks if method is async using asyncio.iscoroutinefunction()
-    - At runtime: Detects if running in async context (checks for running event loop)
-    - Per-thread loop pool: Each sync thread gets its own reusable event loop
-    - Uses pattern matching to dispatch based on (async_context, is_coroutine)
-
-    Execution scenarios (async_context, async_method):
-    - (False, True):  Sync context + Async method -> Execute with loop.run_until_complete()
-    - (False, False): Sync context + Sync method -> Direct call (pass-through)
-    - (True, True):   Async context + Async method -> Return coroutine (for await)
-    - (True, False):  Async context + Sync method -> Offload to thread (asyncio.to_thread)
-
-    Args:
-        method: Method or function to decorate (async or sync)
-
-    Returns:
-        Wrapped function that works in both sync and async contexts
-
-    Example with class methods:
-        class Manager:
-            @smartasync
-            async def async_configure(self, config: dict) -> None:
-                # Async implementation uses await
-                await self._async_setup(config)
-
-            @smartasync
-            def sync_process(self, data: str) -> str:
-                # Sync implementation (e.g., CPU-bound or legacy code)
-                return process_legacy(data)
-
-        # Sync context usage
-        manager = Manager()
-        manager.async_configure({...})  # No await needed! Uses asyncio.run()
-        result = manager.sync_process("data")  # Direct call
-
-        # Async context usage
-        async def main():
-            manager = Manager()
-            await manager.async_configure({...})  # Normal await
-            result = await manager.sync_process("data")  # Offloaded to thread!
-
-    Example with standalone functions:
-        @smartasync
-        async def fetch_data(url: str) -> dict:
-            # Async function
-            return await http_client.get(url)
-
-        @smartasync
-        def process_cpu_intensive(data: list) -> list:
-            # Sync function (CPU-bound)
-            return [expensive_computation(x) for x in data]
-
-        # Sync context
-        data = fetch_data("https://api.example.com")  # No await needed!
-        result = process_cpu_intensive(data)
-
-        # Async context
-        async def main():
-            data = await fetch_data("https://api.example.com")  # Normal await
-            result = await process_cpu_intensive(data)  # Offloaded to thread!
+    Dispatches based on (async_context, is_coroutine):
+    sync+async→run_until_complete, sync+sync→passthrough,
+    async+async→return coroutine, async+sync→to_thread.
     """
     # Import time: Detect if method is async
     is_coro = asyncio.iscoroutinefunction(method)
@@ -238,61 +169,14 @@ def smartasync(method):
 
 
 async def smartawait(value):
-    """Resolve nested awaitables recursively.
-
-    Useful when calling methods that may be sync or async, or when
-    awaitables return other awaitables (e.g., coroutine returning coroutine).
-
-    Args:
-        value: Either a value or an awaitable that returns a value
-
-    Returns:
-        The final resolved value (all awaitables unwrapped)
-
-    Example:
-        async def _do_load(self) -> Any:
-            # self.load() might be sync or async depending on subclass
-            result = await smartawait(self.load())
-            return result
-
-        # Also handles nested awaitables:
-        async def get_loader():
-            return load_data()  # returns another coroutine
-
-        result = await smartawait(get_loader())  # resolves both levels
-    """
+    """Await a value recursively until it is no longer awaitable."""
     while inspect.isawaitable(value):
         value = await value
     return value
 
 
 def smartcontinuation(value, on_resolved, *args, **kwargs):
-    """Apply a callback to a value, handling both sync and async cases.
-
-    If value is a coroutine, wraps it in a continuation that awaits the value
-    and then calls on_resolved. Otherwise calls on_resolved directly.
-
-    Args:
-        value: Either a value or a coroutine
-        on_resolved: Callback to apply to the resolved value
-        *args: Additional positional arguments for on_resolved
-        **kwargs: Additional keyword arguments for on_resolved
-
-    Returns:
-        If value is coroutine: a new coroutine that awaits and transforms
-        If value is not coroutine: the direct result of on_resolved(value, ...)
-
-    Example:
-        def extract_key(data, key):
-            return data[key]
-
-        # Works with sync values
-        result = smartcontinuation({"a": 1}, extract_key, "a")  # returns 1
-
-        # Works with async values
-        result = smartcontinuation(async_load(), extract_key, "a")  # returns coroutine
-        value = await result  # returns the extracted key
-    """
+    """Apply on_resolved to value, wrapping in a continuation if value is awaitable."""
     if inspect.isawaitable(value):
 
         async def cont():
@@ -304,37 +188,7 @@ def smartcontinuation(value, on_resolved, *args, **kwargs):
 
 
 class SmartLock:
-    """Async lock with Future sharing, created on-demand.
-
-    Useful for classes that may or may not be used in async context.
-    The lock and futures are only created when actually needed.
-
-    Features:
-        - Lock created lazily on first use
-        - Future sharing: concurrent callers wait for same result
-        - Automatic cleanup after completion
-
-    Example:
-        class CachedLoader:
-            def __init__(self):
-                self._lock = SmartLock()
-                self._value = None
-                self._loaded = False
-
-            async def get_value(self):
-                if self._loaded:
-                    return self._value
-
-                result = await self._lock.run_once(self._do_load)
-                if result is not None:  # First caller returns value
-                    self._value = result
-                    self._loaded = True
-                return self._value
-
-            async def _do_load(self):
-                # Expensive async operation
-                return await fetch_data()
-    """
+    """Async lock with lazy creation and Future sharing for concurrent callers."""
 
     __slots__ = ("_lock", "_future")
 
@@ -344,22 +198,7 @@ class SmartLock:
         self._future = None
 
     async def run_once(self, coro_func, *args, **kwargs):
-        """Execute coroutine once, sharing result with concurrent callers.
-
-        If another caller is already executing, waits for their result
-        instead of running the coroutine again.
-
-        Args:
-            coro_func: Async function to execute
-            *args: Positional arguments for coro_func
-            **kwargs: Keyword arguments for coro_func
-
-        Returns:
-            Result from coro_func (either from this call or shared)
-
-        Raises:
-            Any exception raised by coro_func (propagated to all waiters)
-        """
+        """Execute coro_func once, sharing the result with concurrent callers via a Future."""
         # Fast path: if Future exists, another call is in progress
         if self._future is not None:
             return await self._future

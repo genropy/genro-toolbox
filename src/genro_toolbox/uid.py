@@ -18,35 +18,7 @@ _EPOCH_US = 1735689600_000_000
 
 
 def get_uuid() -> str:
-    """Generate a 22-character sortable unique identifier.
-
-    Format: Z + 9 chars timestamp + 12 chars random = 22 chars
-
-    The ID consists of:
-    - 'Z': Version marker (distinguishes from legacy UUIDs, sorts after them)
-    - 9 characters: microseconds since 2025-01-01 UTC (base62 encoded)
-    - 12 characters: cryptographically secure random (base62 encoded)
-
-    Properties:
-    - Lexicographically sortable by creation time (UTC)
-    - URL-safe (alphanumeric only)
-    - 22 characters (compatible with legacy Genro ID columns)
-    - IDs starting with 'Z' are new format, others are legacy
-    - Timestamp valid for ~440 years from 2025
-    - Collision probability ~10^-19 for same microsecond
-
-    Returns:
-        22-character string suitable for primary keys, session IDs, etc.
-
-    Example:
-        >>> uid = get_uuid()
-        >>> len(uid)
-        22
-        >>> uid[0]
-        'Z'
-        >>> uid.isalnum()
-        True
-    """
+    """Generate a 22-char sortable unique ID (Z + 9-char base62 timestamp + 12-char base62 random)."""
     # Timestamp part: 9 chars in base62 (µs since 2025-01-01 UTC)
     ts = int(time.time() * 1_000_000) - _EPOCH_US
     ts_part = ""

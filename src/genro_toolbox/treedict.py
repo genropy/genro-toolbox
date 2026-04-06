@@ -14,44 +14,7 @@ from typing import Any
 
 
 class TreeDict:
-    """A hierarchical dictionary supporting dot-path access.
-
-    TreeDict provides a simple way to work with nested dictionaries using
-    path strings (td["user.name"]).
-
-    Features:
-        - Path string access: td["a.b.c"]
-        - Auto-creates intermediate dicts on path write
-        - Returns None for missing keys
-        - List access via #N syntax: td["items.#0.id"]
-        - Thread-safe access via context manager: with td: ...
-        - Async-safe access via async context manager: async with td: ...
-
-    Thread Safety:
-        TreeDict is NOT thread-safe by default. For thread-safe access,
-        use the context manager on the root TreeDict:
-
-            # Sync (threading)
-            with td:
-                td["a.b.c"] = 1
-                val = td["x.y.z"]
-
-            # Async (asyncio)
-            async with td:
-                td["a.b.c"] = 1
-                val = td["x.y.z"]
-
-        The lock protects all operations within the with block.
-        Always use the root TreeDict for locking.
-
-    Example:
-        >>> td = TreeDict({"user": {"name": "Alice"}})
-        >>> td["user.name"]
-        'Alice'
-        >>> td["settings.theme"] = "dark"
-        >>> td["settings.theme"]
-        'dark'
-    """
+    """Hierarchical dictionary with dot-path access, list indexing (#N), and thread/async safety."""
 
     __slots__ = ("_data", "_lock", "_async_lock")
 
