@@ -10,6 +10,9 @@ from typing import Any
 
 from .treedict import TreeDict
 
+_ENV_PREFIX = "ENV:"
+_RESERVED_ATTR_NAMES = ["class"]
+
 
 def filtered_dict(
     data: Mapping[str, Any] | None,
@@ -318,7 +321,7 @@ class SmartOptions(TreeDict):
             if env is not None or argv is not None:
                 # Layer env values (with type conversion)
                 if env is not None:
-                    prefix = env[4:] if env.startswith("ENV:") else env
+                    prefix = env[len(_ENV_PREFIX):] if env.startswith(_ENV_PREFIX) else env
                     env_values = _load_env(prefix, types)
                     result.update(env_values)
 
@@ -336,8 +339,8 @@ class SmartOptions(TreeDict):
             defaults = None
         # If incoming is a string, detect source type
         elif isinstance(incoming, str) and defaults is None:
-            if incoming.startswith("ENV:"):
-                incoming = _load_env(incoming[4:])
+            if incoming.startswith(_ENV_PREFIX):
+                incoming = _load_env(incoming[len(_ENV_PREFIX):])
             else:
                 incoming = _load_config_file(incoming)
         elif isinstance(incoming, Path) and defaults is None:
@@ -402,9 +405,8 @@ def dictExtract(mydict, prefix, pop=False, slice_prefix=True, is_list=False):
     lprefix = len(prefix) if slice_prefix else 0
 
     cb = mydict.pop if pop else mydict.get
-    reserved_names = ["class"]
     return {
-        k[lprefix:] if k[lprefix:] not in reserved_names else f"_{k[lprefix:]}": cb(k)
+        k[lprefix:] if k[lprefix:] not in _RESERVED_ATTR_NAMES else f"_{k[lprefix:]}": cb(k)
         for k in list(mydict.keys())
         if k.startswith(prefix)
     }

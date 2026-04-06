@@ -6,6 +6,9 @@ from datetime import datetime
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
+DEFAULT_MAX_WIDTH = 120
+MIN_COLUMN_WIDTH = 6
+
 
 def strip_ansi(s):
     return ANSI_RE.sub("", s)
@@ -110,7 +113,7 @@ def apply_hierarchy(headers, rows):
     return rows
 
 
-def compute_col_widths(names, rows, max_width=120, minw=6, pad=1):
+def compute_col_widths(names, rows, max_width=DEFAULT_MAX_WIDTH, minw=MIN_COLUMN_WIDTH, pad=1):
     usable = max_width - (len(names) + 1)
     widths = []
     min_widths = []  # Minimum width based on longest word
@@ -184,7 +187,7 @@ def apply_align(t, w, align):
     return t.ljust(w)
 
 
-def draw_table(headers, rows, max_width=120):
+def draw_table(headers, rows, max_width=DEFAULT_MAX_WIDTH):
     names = [h["name"] for h in headers]
     widths = compute_col_widths(names, rows, max_width)
 
@@ -220,7 +223,7 @@ def render_ascii_table(data, max_width=None):
     headers = data["headers"]
     rows = data["rows"]
     if max_width is None:
-        max_width = data.get("max_width", 120)
+        max_width = data.get("max_width", DEFAULT_MAX_WIDTH)
     formatted = [[format_cell(c, h) for c, h in zip(r, headers, strict=False)] for r in rows]
     final = apply_hierarchy(headers, formatted)
     table = draw_table(headers, final, max_width=max_width)
