@@ -39,38 +39,57 @@ def parse_bool(value):
     return value
 
 
+def _format_bool(value, _fmt):
+    v = parse_bool(value)
+    return "true" if v is True else "false" if v is False else str(value)
+
+
+def _format_int(value, _fmt):
+    try:
+        return str(int(value))
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def _format_float(value, fmt):
+    try:
+        f = float(value)
+        return format(f, fmt) if fmt else f"{f:g}"
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def _format_date(value, fmt):
+    try:
+        d = datetime.fromisoformat(str(value)).date()
+    except (ValueError, TypeError):
+        return str(value)
+    return d.strftime(normalize_date_format(fmt)) if fmt else d.isoformat()
+
+
+def _format_datetime(value, fmt):
+    try:
+        dt = datetime.fromisoformat(str(value))
+    except (ValueError, TypeError):
+        return str(value)
+    return dt.strftime(normalize_date_format(fmt)) if fmt else dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+_FORMATTERS = {
+    "bool": _format_bool,
+    "int": _format_int,
+    "float": _format_float,
+    "date": _format_date,
+    "datetime": _format_datetime,
+}
+
+
 def format_cell(value, coldef):
     ctype = coldef.get("type", "str")
     fmt = coldef.get("format")
-
-    if ctype == "str":
-        return str(value)
-    if ctype == "bool":
-        v = parse_bool(value)
-        return "true" if v is True else "false" if v is False else str(value)
-    if ctype == "int":
-        try:
-            return str(int(value))
-        except Exception:
-            return str(value)
-    if ctype == "float":
-        try:
-            f = float(value)
-            return format(f, fmt) if fmt else f"{f:g}"
-        except Exception:
-            return str(value)
-    if ctype == "date":
-        try:
-            d = datetime.fromisoformat(str(value)).date()
-        except Exception:
-            return str(value)
-        return d.strftime(normalize_date_format(fmt)) if fmt else d.isoformat()
-    if ctype == "datetime":
-        try:
-            dt = datetime.fromisoformat(str(value))
-        except Exception:
-            return str(value)
-        return dt.strftime(normalize_date_format(fmt)) if fmt else dt.strftime("%Y-%m-%d %H:%M:%S")
+    formatter = _FORMATTERS.get(ctype)
+    if formatter is not None:
+        return formatter(value, fmt)
     return str(value)
 
 
