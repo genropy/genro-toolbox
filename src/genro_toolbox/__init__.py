@@ -9,6 +9,7 @@ __version__ = "0.8.1"
 from .ascii_table import render_ascii_table, render_markdown_table
 from .decorators import extract_kwargs
 from .dict_utils import DictObj, SmartOptions, dictExtract
+from .pantry import Pantry
 from .smartasync import (
     SmartLock,
     is_async_context,
@@ -17,7 +18,6 @@ from .smartasync import (
     smartawait,
     smartcontinuation,
 )
-from .pantry import Pantry
 from .smarttimer import cancel_timer, set_interval, set_timeout
 from .string_utils import smartsplit
 from .tags_match import RuleError, tags_match
