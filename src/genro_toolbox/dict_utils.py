@@ -217,7 +217,9 @@ def _load_config_file(path: str | Path) -> dict[str, Any]:
             return json.load(f)
     elif suffix == ".toml":
         if tomllib is None:
-            raise ImportError("tomli is required to load TOML files on Python < 3.11: pip install tomli")
+            raise ImportError(
+                "tomli is required to load TOML files on Python < 3.11: pip install tomli"
+            )
         with open(path, "rb") as f:
             return tomllib.load(f)
     elif suffix == ".ini":
@@ -326,7 +328,7 @@ class SmartOptions(TreeDict):
             if env is not None or argv is not None:
                 # Layer env values (with type conversion)
                 if env is not None:
-                    prefix = env[len(_ENV_PREFIX):] if env.startswith(_ENV_PREFIX) else env
+                    prefix = env[len(_ENV_PREFIX) :] if env.startswith(_ENV_PREFIX) else env
                     env_values = _load_env(prefix, types)
                     result.update(env_values)
 
@@ -345,7 +347,7 @@ class SmartOptions(TreeDict):
         # If incoming is a string, detect source type
         elif isinstance(incoming, str) and defaults is None:
             if incoming.startswith(_ENV_PREFIX):
-                incoming = _load_env(incoming[len(_ENV_PREFIX):])
+                incoming = _load_env(incoming[len(_ENV_PREFIX) :])
             else:
                 incoming = _load_config_file(incoming)
         elif isinstance(incoming, Path) and defaults is None:

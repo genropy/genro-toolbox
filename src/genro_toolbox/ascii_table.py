@@ -126,7 +126,11 @@ def apply_hierarchy(headers, rows):
         other_col_count = len(rows[0]) - 1
         expanded_rows = []
         for full, label, level, is_leaf in tree_items:
-            values = values_by_path[full] if is_leaf and full in values_by_path else [""] * other_col_count
+            values = (
+                values_by_path[full]
+                if is_leaf and full in values_by_path
+                else [""] * other_col_count
+            )
             expanded_rows.append(["  " * level + label] + values)
         return expanded_rows
     return rows

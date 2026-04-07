@@ -142,8 +142,7 @@ class Pantry:
             pantry.has("numpy", "pandas")  # all must be installed
         """
         return all(
-            pkg not in self._hidden and self._probe(pkg).get("available", False)
-            for pkg in pkgs
+            pkg not in self._hidden and self._probe(pkg).get("available", False) for pkg in pkgs
         )
 
     def get(self, pkg: str, default: object = _MISSING) -> types.ModuleType | None:
@@ -181,8 +180,7 @@ class Pantry:
         mod = self.get(key)
         if mod is None:
             raise RuntimeError(
-                f"Package '{key}' is not available. "
-                f"Install with: pip install {key}"
+                f"Package '{key}' is not available. " f"Install with: pip install {key}"
             )
         return mod
 
@@ -222,9 +220,7 @@ class Pantry:
         try:
             parent = importlib.import_module(parent_path)
         except ImportError:
-            raise RuntimeError(
-                f"Lazy import failed: no module named '{parent_path}'"
-            ) from None
+            raise RuntimeError(f"Lazy import failed: no module named '{parent_path}'") from None
         try:
             return getattr(parent, attr_name)
         except AttributeError:
@@ -302,19 +298,15 @@ class Pantry:
                 col_widths[i] = max(col_widths[i], len(cell))
 
         COL_SEPARATOR_WIDTH = 2  # "  " between columns
-        TABLE_PADDING = 4        # "  " left + right padding
+        TABLE_PADDING = 4  # "  " left + right padding
         total_width = sum(col_widths) + COL_SEPARATOR_WIDTH * (len(headers) - 1) + TABLE_PADDING
         sep = "\u2500" * total_width
 
         lines.append(sep)
-        header_line = "  ".join(
-            h.ljust(w) for h, w in zip(headers, col_widths, strict=True)
-        )
+        header_line = "  ".join(h.ljust(w) for h, w in zip(headers, col_widths, strict=True))
         lines.append(header_line)
         for row in rows:
-            lines.append(
-                "  ".join(cell.ljust(w) for cell, w in zip(row, col_widths, strict=True))
-            )
+            lines.append("  ".join(cell.ljust(w) for cell, w in zip(row, col_widths, strict=True)))
         lines.append(sep)
 
         available = sum(1 for r in rows if r[3] == "\u2713")

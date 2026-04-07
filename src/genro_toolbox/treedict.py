@@ -105,9 +105,7 @@ class TreeDict:
             return True, int(key[1:])
         return False, key
 
-    def _traverse_to_parent(
-        self, parts: list[str], *, create: bool = False
-    ) -> Any:
+    def _traverse_to_parent(self, parts: list[str], *, create: bool = False) -> Any:
         """Walk all path segments except the last, returning the parent container.
 
         Args:
