@@ -11,11 +11,13 @@ from .decorators import extract_kwargs
 from .dict_utils import DictObj, SmartOptions, dictExtract
 from .smartasync import (
     SmartLock,
+    is_async_context,
     reset_smartasync_cache,
     smartasync,
     smartawait,
     smartcontinuation,
 )
+from .pantry import Pantry
 from .smarttimer import cancel_timer, set_interval, set_timeout
 from .string_utils import smartsplit
 from .tags_match import RuleError, tags_match
@@ -40,8 +42,13 @@ __all__ = [
     "smartcontinuation",
     "SmartLock",
     "reset_smartasync_cache",
+    "is_async_context",
     "smartsplit",
     "set_timeout",
     "set_interval",
     "cancel_timer",
+    "pantry",
+    "Pantry",
 ]
+
+pantry = Pantry()

@@ -114,6 +114,15 @@ class AsyncHandler:
 _async_handler = AsyncHandler()
 
 
+def is_async_context() -> bool:
+    """Return True if a running event loop exists in the current context."""
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False
+
+
 def reset_smartasync_cache():
     """Clear all cached event loops.
 

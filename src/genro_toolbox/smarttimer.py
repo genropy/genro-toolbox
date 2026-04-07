@@ -29,19 +29,11 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from .smartasync import is_async_context as _is_async_context
 from .uid import get_uuid
 
 _timers: dict[str, Any] = {}
 _timers_lock = threading.Lock()
-
-
-def _is_async_context() -> bool:
-    """Return True if a running event loop exists."""
-    try:
-        asyncio.get_running_loop()
-        return True
-    except RuntimeError:
-        return False
 
 
 async def _invoke_async(callback: Callable, *args: Any, **kwargs: Any) -> None:
