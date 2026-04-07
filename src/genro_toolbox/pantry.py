@@ -99,9 +99,13 @@ class Pantry:
             return pkg_name.replace("-", "_")
 
         top_level = dist.read_text("top_level.txt")
-        first = next((ln for ln in (top_level or "").splitlines() if ln.strip()), None)
-        if first:
-            return first.strip()
+        names = [ln.strip() for ln in (top_level or "").splitlines() if ln.strip()]
+        # Prefer public modules over private ones (e.g. yaml over _yaml)
+        public = next((n for n in names if not n.startswith("_")), None)
+        if public:
+            return public
+        if names:
+            return names[0]
 
         if dist.files:
             for fp in dist.files:
