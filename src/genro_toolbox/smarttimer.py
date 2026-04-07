@@ -78,19 +78,26 @@ def _sync_timeout(
     timer_thread.start()
 
 
+def _schedule_async_task(timer_id: str, coro: Any) -> None:
+    """Create an async task for the coroutine and register it in _timers."""
+    loop = asyncio.get_running_loop()
+    task = loop.create_task(coro)
+    with _timers_lock:
+        _timers[timer_id] = task
+
+
 def _sync_interval(
     timer_id: str,
     delay: float,
     callback: Callable,
     args: tuple,
     kwargs: dict,
-    initial_delay: float | None = None,
+    first_delay: float,
 ) -> None:
     """Execute a repeating timer in sync context using threading.Timer."""
     stop_event = threading.Event()
 
     def _run():
-        first_delay = initial_delay if initial_delay is not None else delay
         stop_event.wait(first_delay)
         if not stop_event.is_set():
             _invoke_sync(callback, *args, **kwargs)
@@ -124,11 +131,10 @@ async def _async_interval(
     callback: Callable,
     args: tuple,
     kwargs: dict,
-    initial_delay: float | None = None,
+    first_delay: float,
 ) -> None:
     """Execute a repeating timer in async context."""
     try:
-        first_delay = initial_delay if initial_delay is not None else delay
         await asyncio.sleep(first_delay)
         await _invoke_async(callback, *args, **kwargs)
         while True:
@@ -143,10 +149,7 @@ def set_timeout(delay: float, callback: Callable, *args: Any, **kwargs: Any) -> 
     timer_id = get_uuid()
 
     if _is_async_context():
-        loop = asyncio.get_running_loop()
-        task = loop.create_task(_async_timeout(timer_id, delay, callback, args, kwargs))
-        with _timers_lock:
-            _timers[timer_id] = task
+        _schedule_async_task(timer_id, _async_timeout(timer_id, delay, callback, args, kwargs))
     else:
         _sync_timeout(timer_id, delay, callback, args, kwargs)
 
@@ -162,16 +165,15 @@ def set_interval(
 ) -> str:
     """Schedule a repeating callback every delay seconds. Returns timer ID."""
     timer_id = get_uuid()
+    first_delay = initial_delay if initial_delay is not None else delay
 
     if _is_async_context():
-        loop = asyncio.get_running_loop()
-        task = loop.create_task(
-            _async_interval(timer_id, delay, callback, args, kwargs, initial_delay)
+        _schedule_async_task(
+            timer_id,
+            _async_interval(timer_id, delay, callback, args, kwargs, first_delay),
         )
-        with _timers_lock:
-            _timers[timer_id] = task
     else:
-        _sync_interval(timer_id, delay, callback, args, kwargs, initial_delay)
+        _sync_interval(timer_id, delay, callback, args, kwargs, first_delay)
 
     return timer_id
 
