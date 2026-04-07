@@ -86,44 +86,34 @@ class _TagParser:
         self._token_idx = 0
         self._tokenize()
 
+    def _classify_word(self, value: str) -> tuple[str, str]:
+        """Classify a WORD token as keyword (AND/OR/NOT) or TAG."""
+        _KEYWORDS = {"and": "AND", "or": "OR", "not": "NOT"}
+        token_type = _KEYWORDS.get(value.lower(), "TAG")
+        return token_type, value
+
     def _tokenize(self) -> None:
         """Tokenize the input rule."""
         pos = 0
         while pos < len(self._rule):
             match = self._TOKEN_RE.match(self._rule, pos)
             if not match:
-                # Check if it's just whitespace at end
                 if self._rule[pos:].strip():
                     raise RuleError(
-                        f"Invalid character in tag rule at position {pos}: " f"'{self._rule[pos]}'"
+                        f"Invalid character in tag rule at position {pos}: '{self._rule[pos]}'"
                     )
                 break
 
-            # Find which group matched
             for name in ("LPAREN", "RPAREN", "NOT", "AND", "OR", "WORD"):
                 value = match.group(name)
                 if value is not None:
-                    # Convert keywords to their token types
                     if name == "WORD":
-                        lower = value.lower()
-                        if lower == "and":
-                            self._tokens.append(("AND", value))
-                        elif lower == "or":
-                            self._tokens.append(("OR", value))
-                        elif lower == "not":
-                            self._tokens.append(("NOT", value))
-                        else:
-                            self._tokens.append(("TAG", value))
+                        self._tokens.append(self._classify_word(value))
                     else:
                         self._tokens.append((name, value))
                     break
 
             pos = match.end()
-
-        # Check for remaining non-whitespace
-        remaining = self._rule[pos:].strip()
-        if remaining:
-            raise RuleError(f"Invalid character in tag rule: '{remaining[0]}'")
 
     def _current(self) -> tuple[str, str] | None:
         """Get current token or None if exhausted."""
