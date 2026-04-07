@@ -4,12 +4,25 @@ Dictionary utilities for Genro-Toolbox.
 Provides utilities for dict manipulation used across the library.
 """
 
+import configparser
 import inspect
+import json
+import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, get_type_hints
 
 from .treedict import TreeDict
+
+try:
+    import tomllib
+except ImportError:
+    tomllib = None  # type: ignore[assignment]
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
 
 _ENV_PREFIX = "ENV:"
 _RESERVED_ATTR_NAMES = ["class"]
@@ -80,8 +93,6 @@ def _extract_signature_info(
     func: Callable[..., Any],
 ) -> tuple[dict[str, Any], dict[str, type], list[str]]:
     """Extract defaults, types, and positional params from callable signature."""
-    from typing import get_type_hints
-
     sig = inspect.signature(func)
     defaults = {}
     types = {}
@@ -171,8 +182,6 @@ def _load_env(prefix: str, types: dict[str, type] | None = None) -> dict[str, An
         prefix: Environment variable prefix (e.g., "MYAPP" for MYAPP_HOST, MYAPP_PORT)
         types: Optional dict mapping keys to types for conversion
     """
-    import os
-
     prefix_upper = prefix.upper() + "_"
     result: dict[str, Any] = {}
     for key, raw_value in os.environ.items():
@@ -198,26 +207,20 @@ def _load_config_file(path: str | Path) -> dict[str, Any]:
         return {}
     suffix = path.suffix.lower()
 
-    if suffix == ".yaml" or suffix == ".yml":
-        import yaml
-
+    if suffix in (".yaml", ".yml"):
+        if yaml is None:
+            raise ImportError("PyYAML is required to load YAML files: pip install pyyaml")
         with open(path) as f:
             return yaml.safe_load(f) or {}
     elif suffix == ".json":
-        import json
-
         with open(path) as f:
             return json.load(f)
     elif suffix == ".toml":
-        try:
-            import tomllib
-        except ImportError:
-            import tomli as tomllib  # type: ignore[import-not-found,no-redef]
+        if tomllib is None:
+            raise ImportError("tomli is required to load TOML files on Python < 3.11: pip install tomli")
         with open(path, "rb") as f:
             return tomllib.load(f)
     elif suffix == ".ini":
-        import configparser
-
         parser = configparser.ConfigParser()
         parser.read(path)
         return {

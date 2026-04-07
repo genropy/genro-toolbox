@@ -6,11 +6,22 @@
 from __future__ import annotations
 
 import asyncio
+import configparser
 import json
 from collections.abc import Iterator
 from pathlib import Path
 from threading import RLock
 from typing import Any
+
+try:
+    import tomllib
+except ImportError:
+    tomllib = None  # type: ignore[assignment]
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
 
 
 class TreeDict:
@@ -299,20 +310,18 @@ class TreeDict:
             with open(path) as f:
                 data = json.load(f)
         elif suffix in (".yaml", ".yml"):
-            import yaml
-
+            if yaml is None:
+                raise ImportError("PyYAML is required to load YAML files: pip install pyyaml")
             with open(path) as f:
                 data = yaml.safe_load(f) or {}
         elif suffix == ".toml":
-            try:
-                import tomllib
-            except ImportError:
-                import tomli as tomllib  # type: ignore[import-not-found,no-redef]
+            if tomllib is None:
+                raise ImportError(
+                    "tomli is required to load TOML files on Python < 3.11: pip install tomli"
+                )
             with open(path, "rb") as f:
                 data = tomllib.load(f)
         elif suffix == ".ini":
-            import configparser
-
             parser = configparser.ConfigParser()
             parser.read(path)
             data = {section: dict(parser.items(section)) for section in parser.sections()}
