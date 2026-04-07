@@ -98,8 +98,8 @@ def build_tree(paths, sep):
     for full in paths:
         parts = str(full).split(sep)
         node = tree
-        for p in parts:
-            node = node.setdefault(p, {})
+        for part in parts:
+            node = node.setdefault(part, {})
     return tree
 
 
@@ -189,12 +189,12 @@ def merge_wrapped(wrapped):
     return [[col[i] if i < len(col) else "" for col in wrapped] for i in range(max_lines)]
 
 
-def apply_align(t, w, align):
+def apply_align(text, width, align):
     if align == "right":
-        return t.rjust(w)
+        return text.rjust(width)
     if align == "center":
-        return t.center(w)
-    return t.ljust(w)
+        return text.center(width)
+    return text.ljust(width)
 
 
 def draw_table(headers, rows, max_width=DEFAULT_MAX_WIDTH):

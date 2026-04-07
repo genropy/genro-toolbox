@@ -37,7 +37,7 @@ class Pantry:
     """
 
     _UNRESOLVED = object()
-    _sentinel = object()
+    _MISSING = object()
 
     def __init__(self):
         self._cache: dict[str, dict] = {}
@@ -146,7 +146,7 @@ class Pantry:
             for pkg in pkgs
         )
 
-    def get(self, pkg: str, default: object = _sentinel) -> types.ModuleType | None:
+    def get(self, pkg: str, default: object = _MISSING) -> types.ModuleType | None:
         """Return the imported module for *pkg*.
 
         The module is imported lazily on first access.
@@ -154,13 +154,13 @@ class Pantry:
         With *default*, returns *default* instead.
         """
         if pkg in self._hidden:
-            return None if default is self._sentinel else default
+            return None if default is self._MISSING else default
         entry = self._probe(pkg)
         if not entry.get("available"):
-            return None if default is self._sentinel else default
+            return None if default is self._MISSING else default
         mod = self._load_module(entry)
         if mod is None:
-            return None if default is self._sentinel else default
+            return None if default is self._MISSING else default
         return mod
 
     def __getitem__(self, key: str) -> types.ModuleType:
