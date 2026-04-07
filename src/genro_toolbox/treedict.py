@@ -24,6 +24,10 @@ except ImportError:
     yaml = None  # type: ignore[assignment]
 
 
+class _TraversalError(Exception):
+    """Internal signal for failed path traversal (not part of public API)."""
+
+
 class TreeDict:
     """Hierarchical dictionary with dot-path access, list indexing (#N), and thread/async safety."""
 
@@ -112,61 +116,92 @@ class TreeDict:
             return True, int(key[1:])
         return False, key
 
-    def _get_by_path(self, path: str) -> Any:
-        """Get value by dot-separated path string."""
-        parts = path.split(".")
+    def _traverse_to_parent(
+        self, parts: list[str], *, create: bool = False
+    ) -> Any:
+        """Walk all path segments except the last, returning the parent container.
+
+        Args:
+            parts: All path segments (the full split path).
+            create: If True, create intermediate TreeDict/list nodes as needed.
+
+        Raises:
+            _TraversalError: When navigation fails (missing key, wrong type, None).
+        """
         current: Any = self
 
-        for part in parts:
+        for i, part in enumerate(parts[:-1]):
             if current is None:
-                return None
+                raise _TraversalError
 
             is_list_idx, key = self._parse_key(part)
 
             if is_list_idx:
-                if not isinstance(current, list):
-                    return None
                 assert isinstance(key, int)
-                if key < 0 or key >= len(current):
-                    return None
+                if not isinstance(current, list):
+                    if create:
+                        raise TypeError(f"Cannot index non-list with {part}")
+                    raise _TraversalError
+                if create:
+                    while len(current) <= key:
+                        current.append(None)
+                    if current[key] is None:
+                        next_is_list, _ = self._parse_key(parts[i + 1])
+                        current[key] = [] if next_is_list else TreeDict()
+                elif key < 0 or key >= len(current):
+                    raise _TraversalError
                 current = current[key]
-                if isinstance(current, dict) and not isinstance(current, TreeDict):
+                if not create and isinstance(current, dict) and not isinstance(current, TreeDict):
                     current = TreeDict(current)
             elif isinstance(current, TreeDict):
-                current = current._data.get(key)
-            elif isinstance(current, dict):
+                if create:
+                    assert isinstance(key, str)
+                    if key not in current._data or current._data[key] is None:
+                        next_is_list, _ = self._parse_key(parts[i + 1])
+                        current._data[key] = [] if next_is_list else TreeDict()
+                    current = current._data[key]
+                else:
+                    current = current._data.get(key)
+            elif not create and isinstance(current, dict):
                 current = current.get(key)
             else:
-                return None
+                if create:
+                    raise TypeError(f"Cannot set attribute on {type(current)}")
+                raise _TraversalError
 
         return current
+
+    def _get_by_path(self, path: str) -> Any:
+        """Get value by dot-separated path string."""
+        parts = path.split(".")
+        try:
+            current = self._traverse_to_parent(parts, create=False)
+        except _TraversalError:
+            return None
+        if current is None:
+            return None
+        last_part = parts[-1]
+        is_list_idx, key = self._parse_key(last_part)
+        if is_list_idx:
+            if not isinstance(current, list):
+                return None
+            assert isinstance(key, int)
+            if key < 0 or key >= len(current):
+                return None
+            result = current[key]
+            if isinstance(result, dict) and not isinstance(result, TreeDict):
+                return TreeDict(result)
+            return result
+        if isinstance(current, TreeDict):
+            return current._data.get(key)
+        if isinstance(current, dict):
+            return current.get(key)
+        return None
 
     def _set_by_path(self, path: str, value: Any) -> None:
         """Set value by dot-separated path string, creating intermediate nodes."""
         parts = path.split(".")
-        current = self
-
-        for i, part in enumerate(parts[:-1]):
-            is_list_idx, key = self._parse_key(part)
-            next_is_list, _ = self._parse_key(parts[i + 1])
-
-            if is_list_idx:
-                assert isinstance(key, int)
-                if not isinstance(current, list):
-                    raise TypeError(f"Cannot index non-list with {part}")
-                while len(current) <= key:
-                    current.append(None)
-                if current[key] is None:
-                    current[key] = [] if next_is_list else TreeDict()
-                current = current[key]
-            else:
-                assert isinstance(key, str)
-                if isinstance(current, TreeDict):
-                    if key not in current._data or current._data[key] is None:
-                        current._data[key] = [] if next_is_list else TreeDict()
-                    current = current._data[key]
-                else:
-                    raise TypeError(f"Cannot set attribute on {type(current)}")
+        current = self._traverse_to_parent(parts, create=True)
 
         last_part = parts[-1]
         is_list_idx, key = self._parse_key(last_part)
@@ -187,25 +222,13 @@ class TreeDict:
     def _del_by_path(self, path: str) -> None:
         """Delete value by dot-separated path string."""
         parts = path.split(".")
-        current: Any = self
+        try:
+            current = self._traverse_to_parent(parts, create=False)
+        except _TraversalError:
+            raise KeyError(path) from None
 
-        for part in parts[:-1]:
-            if current is None:
-                raise KeyError(path)
-
-            is_list_idx, key = self._parse_key(part)
-
-            if is_list_idx:
-                if not isinstance(current, list):
-                    raise KeyError(path)
-                assert isinstance(key, int)
-                if key < 0 or key >= len(current):
-                    raise KeyError(path)
-                current = current[key]
-            elif isinstance(current, TreeDict):
-                current = current._data.get(key)
-            else:
-                raise KeyError(path)
+        if current is None:
+            raise KeyError(path)
 
         last_part = parts[-1]
         is_list_idx, key = self._parse_key(last_part)
