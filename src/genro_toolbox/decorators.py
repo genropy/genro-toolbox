@@ -13,8 +13,8 @@ from .dict_utils import dictExtract
 F = TypeVar("F", bound=Callable[..., Any])
 
 # Constants to avoid recreating dicts
-_DEFAULT_EXTRACT_OPTIONS = {"slice_prefix": True, "pop": False, "is_list": False}
-_POP_EXTRACT_OPTIONS = {"slice_prefix": True, "pop": True, "is_list": False}
+_DEFAULT_EXTRACT_OPTIONS = {"slice_prefix": True, "pop": False}
+_POP_EXTRACT_OPTIONS = {"slice_prefix": True, "pop": True}
 
 
 def extract_kwargs(
@@ -36,7 +36,7 @@ def extract_kwargs(
         **extraction_specs: Extraction specifications where keys are prefix names.
                           Values can be:
                           - True: Extract and remove (pop=True)
-                          - dict: Custom options (slice_prefix, pop, is_list)
+                          - dict: Custom options (slice_prefix, pop)
 
     Returns:
         Decorated function that extracts kwargs by prefix.

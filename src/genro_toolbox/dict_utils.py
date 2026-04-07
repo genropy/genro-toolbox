@@ -397,14 +397,13 @@ class SmartOptions(TreeDict):
         return f"SmartOptions({self.as_dict()})"
 
 
-def dictExtract(source_dict, prefix, pop=False, slice_prefix=True, is_list=False):
+def dictExtract(source_dict, prefix, pop=False, slice_prefix=True):
     """Return a dict of the items with keys starting with prefix.
 
     :param source_dict: source dictionary
     :param prefix: the prefix of the items you need to extract
     :param pop: removes the items from the source dictionary
     :param slice_prefix: shortens the keys of the output dict removing the prefix
-    :param is_list: reserved for future use (currently not used)
     :returns: a dict of the items with keys starting with prefix"""
 
     lprefix = len(prefix) if slice_prefix else 0
