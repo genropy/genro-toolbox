@@ -64,12 +64,7 @@ class AsyncHandler:
 
     @property
     def current_thread_loop(self) -> asyncio.AbstractEventLoop | None:
-        """Get event loop for current thread, or None if in async context.
-
-        Returns:
-            None if an external event loop is running (async context),
-            otherwise returns (creating if needed) a loop for this thread.
-        """
+        """Get event loop for current thread, or None if in async context."""
         try:
             asyncio.get_running_loop()
             return None
@@ -86,11 +81,7 @@ class AsyncHandler:
 
     @current_thread_loop.setter
     def current_thread_loop(self, value):
-        """Set or remove the event loop for current thread.
-
-        Args:
-            value: EventLoop to set, or None to remove current thread's loop.
-        """
+        """Set or remove the event loop for current thread (None to remove)."""
         tid = threading.get_ident()
         if value is None:
             self._thread_loops.pop(tid, None)
@@ -124,17 +115,7 @@ def is_async_context() -> bool:
 
 
 def reset_smartasync_cache():
-    """Clear all cached event loops.
-
-    Call this in tests to ensure clean state.
-
-    Example:
-        from genro_toolbox import reset_smartasync_cache
-
-        def test_something():
-            reset_smartasync_cache()
-            # test code...
-    """
+    """Clear all cached event loops. Call in tests to ensure clean state."""
     _async_handler.reset()
 
 

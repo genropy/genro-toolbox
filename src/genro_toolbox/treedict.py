@@ -34,18 +34,7 @@ class TreeDict:
     __slots__ = ("_data", "_lock", "_async_lock")
 
     def __init__(self, data: dict[str, Any] | str | None = None) -> None:
-        """Initialize TreeDict with optional data.
-
-        Args:
-            data: Initial data. Can be:
-                - dict: Used directly
-                - str: Parsed as JSON
-                - None: Empty TreeDict
-
-        Raises:
-            json.JSONDecodeError: If string is not valid JSON.
-            TypeError: If data is not dict, str, or None.
-        """
+        """Initialize from dict, JSON string, or None (empty)."""
         object.__setattr__(self, "_data", {})
         object.__setattr__(self, "_lock", RLock())
         object.__setattr__(self, "_async_lock", None)  # Lazy init
@@ -309,20 +298,7 @@ class TreeDict:
 
     @classmethod
     def from_file(cls, path: str | Path) -> TreeDict:
-        """Load TreeDict from a config file.
-
-        Supports JSON, YAML, TOML, and INI formats (auto-detected by extension).
-
-        Args:
-            path: Path to the config file.
-
-        Returns:
-            TreeDict with loaded data.
-
-        Raises:
-            FileNotFoundError: If file doesn't exist.
-            ValueError: If file format is not supported.
-        """
+        """Load TreeDict from a config file (JSON/YAML/TOML/INI, auto-detected by extension)."""
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")

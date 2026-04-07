@@ -5,6 +5,15 @@
 
 Evaluates expressions like ``"admin & !internal"`` against a set of tags.
 Supports ``|``/``or``, ``&``/``and``, ``!``/``not``, and parentheses.
+
+Grammar::
+
+    expr     := or_expr
+    or_expr  := and_expr (('|' | 'or') and_expr)*
+    and_expr := not_expr (('&' | 'and') not_expr)*
+    not_expr := ('!' | 'not') not_expr | primary
+    primary  := '(' expr ')' | TAG
+    TAG      := [a-zA-Z_][a-zA-Z0-9_]* (excluding keywords)
 """
 
 from __future__ import annotations
@@ -27,26 +36,8 @@ def tags_match(
 ) -> bool:
     """Evaluate a boolean tag expression against a set of values.
 
-    Args:
-        rule: Boolean expression string (e.g., "admin&!internal").
-        values: Set of tag strings to match against.
-        max_length: Maximum allowed length for the rule string.
-        max_depth: Maximum nesting depth for parentheses.
-
-    Returns:
-        True if the expression matches the given values.
-
-    Raises:
-        RuleError: If the rule is invalid or exceeds limits.
-
-    Grammar::
-
-        expr     := or_expr
-        or_expr  := and_expr (('|' | 'or') and_expr)*
-        and_expr := not_expr (('&' | 'and') not_expr)*
-        not_expr := ('!' | 'not') not_expr | primary
-        primary  := '(' expr ')' | TAG
-        TAG      := [a-zA-Z_][a-zA-Z0-9_]* (excluding keywords)
+    Returns True if *rule* matches *values*. Empty/blank rule returns True.
+    Raises RuleError on syntax errors or exceeded limits.
     """
     if not rule.strip():
         return True
