@@ -48,7 +48,7 @@ def tags_match(
         primary  := '(' expr ')' | TAG
         TAG      := [a-zA-Z_][a-zA-Z0-9_]* (excluding keywords)
     """
-    if not rule or not rule.strip():
+    if not rule.strip():
         return True
 
     if len(rule) > max_length:
@@ -146,11 +146,9 @@ class _TagParser:
         result = self._parse_or()
 
         # Ensure all tokens consumed
-        if self._current() is not None:
-            token = self._current()
-            raise RuleError(
-                f"Unexpected token '{token[1]}' in: {self._rule}"  # type: ignore[index]
-            )
+        remaining = self._current()
+        if remaining is not None:
+            raise RuleError(f"Unexpected token '{remaining[1]}' in: {self._rule}")
 
         return result
 
