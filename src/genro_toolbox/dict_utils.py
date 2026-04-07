@@ -101,7 +101,7 @@ def _extract_signature_info(
     # Use get_type_hints to resolve stringified annotations (PEP 563)
     try:
         hints = get_type_hints(func)
-    except Exception:
+    except (NameError, AttributeError, TypeError):
         hints = {}
 
     for name, param in sig.parameters.items():
