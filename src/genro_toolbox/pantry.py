@@ -301,8 +301,9 @@ class Pantry:
             for i, cell in enumerate(row):
                 col_widths[i] = max(col_widths[i], len(cell))
 
-        # columns + "  " separators between columns + "  " left/right padding
-        total_width = sum(col_widths) + 2 * (len(headers) - 1) + 4
+        COL_SEPARATOR_WIDTH = 2  # "  " between columns
+        TABLE_PADDING = 4        # "  " left + right padding
+        total_width = sum(col_widths) + COL_SEPARATOR_WIDTH * (len(headers) - 1) + TABLE_PADDING
         sep = "\u2500" * total_width
 
         lines.append(sep)

@@ -160,12 +160,13 @@ def compute_col_widths(names, rows, max_width=DEFAULT_MAX_WIDTH, minw=MIN_COLUMN
         # First try: ensure no word is broken
         min_total = sum(min_widths)
         if min_total <= usable:
-            # Distribute remaining space proportionally
+            # Distribute remaining space proportionally to each column's excess over min
             remaining = usable - min_total
             excess = total - min_total
+            ratio = remaining / excess
             for i in range(len(widths)):
                 extra = widths[i] - min_widths[i]
-                widths[i] = min_widths[i] + int(extra * remaining / excess)
+                widths[i] = min_widths[i] + int(extra * ratio)
         else:
             # Not enough space even for longest words - scale down proportionally
             scale = usable / sum(min_widths)
