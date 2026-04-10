@@ -107,9 +107,7 @@ def set_interval(
     timer_id = get_uuid()
     first_delay = initial_delay if initial_delay is not None else delay
     loop = asyncio.get_running_loop()
-    task = loop.create_task(
-        _async_interval(timer_id, delay, callback, args, kwargs, first_delay)
-    )
+    task = loop.create_task(_async_interval(timer_id, delay, callback, args, kwargs, first_delay))
     _timers[timer_id] = task
     return timer_id
 
