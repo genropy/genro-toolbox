@@ -18,3 +18,8 @@ def _mro_fullnames(cls: type) -> set[str]:
 def safe_is_instance(obj: Any, class_full_name: str) -> bool:
     """Return True if obj is an instance of class_full_name (checked via MRO, no import)."""
     return class_full_name in _mro_fullnames(obj.__class__)
+
+
+def is_awaitable(value: Any) -> bool:
+    """Return True if *value* is awaitable (has an __await__ method)."""
+    return hasattr(value, "__await__")

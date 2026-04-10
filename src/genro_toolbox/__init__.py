@@ -4,7 +4,7 @@ Genro-Toolbox - Essential utilities for the Genro ecosystem (Genro Kyō).
 A lightweight, zero-dependency library providing core utilities.
 """
 
-__version__ = "0.8.1"
+__version__ = "0.9.0"
 
 from .ascii_table import render_ascii_table, render_markdown_table
 from .decorators import extract_kwargs
@@ -22,7 +22,7 @@ from .smarttimer import cancel_timer, set_interval, set_timeout
 from .string_utils import smartsplit
 from .tags_match import RuleError, tags_match
 from .treedict import TreeDict
-from .typeutils import safe_is_instance
+from .typeutils import is_awaitable, safe_is_instance
 from .uid import get_uuid
 
 __all__ = [
@@ -31,6 +31,7 @@ __all__ = [
     "SmartOptions",
     "dictExtract",
     "safe_is_instance",
+    "is_awaitable",
     "render_ascii_table",
     "render_markdown_table",
     "tags_match",

@@ -43,8 +43,9 @@ Inline Usage:
 
 import asyncio
 import functools
-import inspect
 import threading
+
+from .typeutils import is_awaitable
 
 
 class AsyncHandler:
@@ -159,14 +160,14 @@ def smartasync(method):
 
 async def smartawait(value):
     """Await a value recursively until it is no longer awaitable."""
-    while inspect.isawaitable(value):
+    while is_awaitable(value):
         value = await value
     return value
 
 
 def smartcontinuation(value, on_resolved, *args, **kwargs):
     """Apply on_resolved to value, wrapping in a continuation if value is awaitable."""
-    if inspect.isawaitable(value):
+    if is_awaitable(value):
 
         async def cont():
             resolved = await value
