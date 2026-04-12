@@ -332,6 +332,7 @@ class TestEdgeCases:
 
     def test_decorator_without_parentheses_raises_type_error(self):
         with pytest.raises(TypeError, match="smartretry requires arguments"):
+
             @smartretry  # type: ignore[arg-type]
             def bad():
                 pass

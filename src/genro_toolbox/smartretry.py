@@ -57,9 +57,7 @@ def smartretry(
         on: Exception types to retry on.
     """
     if callable(max_attempts) and not isinstance(max_attempts, int):
-        raise TypeError(
-            "smartretry requires arguments: use @smartretry() not @smartretry"
-        )
+        raise TypeError("smartretry requires arguments: use @smartretry() not @smartretry")
 
     def decorator(func: Callable) -> Callable:
         is_coro = inspect.iscoroutinefunction(func)
