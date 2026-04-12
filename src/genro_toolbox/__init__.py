@@ -4,7 +4,7 @@ Genro-Toolbox - Essential utilities for the Genro ecosystem (Genro Kyō).
 A lightweight, zero-dependency library providing core utilities.
 """
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 from .ascii_table import render_ascii_table, render_markdown_table
 from .decorators import extract_kwargs
@@ -18,6 +18,7 @@ from .smartasync import (
     smartawait,
     smartcontinuation,
 )
+from .smartretry import RETRY_PRESETS, retry_call, smartretry
 from .smarttimer import cancel_timer, set_interval, set_timeout
 from .string_utils import smartsplit
 from .tags_match import RuleError, tags_match
@@ -48,6 +49,9 @@ __all__ = [
     "set_timeout",
     "set_interval",
     "cancel_timer",
+    "smartretry",
+    "retry_call",
+    "RETRY_PRESETS",
     "pantry",
     "Pantry",
 ]
