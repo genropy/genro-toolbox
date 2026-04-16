@@ -42,10 +42,31 @@ Inline Usage:
 """
 
 import asyncio
+import contextvars
 import functools
 import threading
 
 from .typeutils import is_awaitable
+
+_async_mode: contextvars.ContextVar[bool | None] = contextvars.ContextVar(
+    "genro_async_mode", default=None
+)
+
+
+def set_sync(active: bool = True) -> None:
+    """Force sync mode. Overrides auto-detection of async context.
+
+    Call set_sync(False) to cancel override and return to auto-detect.
+    """
+    _async_mode.set(False if active else None)
+
+
+def set_async(active: bool = True) -> None:
+    """Force async mode. Overrides auto-detection of async context.
+
+    Call set_async(False) to cancel override and return to auto-detect.
+    """
+    _async_mode.set(True if active else None)
 
 
 class AsyncHandler:
@@ -66,11 +87,8 @@ class AsyncHandler:
     @property
     def current_thread_loop(self) -> asyncio.AbstractEventLoop | None:
         """Get event loop for current thread, or None if in async context."""
-        try:
-            asyncio.get_running_loop()
+        if is_async_context():
             return None
-        except RuntimeError:
-            pass
 
         tid = threading.get_ident()
         loop = self._thread_loops.get(tid)
@@ -107,7 +125,10 @@ _async_handler = AsyncHandler()
 
 
 def is_async_context() -> bool:
-    """Return True if a running event loop exists in the current context."""
+    """Return True if running in async context. Respects set_sync/set_async override."""
+    mode = _async_mode.get()
+    if mode is not None:
+        return mode
     try:
         asyncio.get_running_loop()
         return True

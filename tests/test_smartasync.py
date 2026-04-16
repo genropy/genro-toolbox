@@ -7,7 +7,14 @@ import asyncio
 
 import pytest
 
-from genro_toolbox.smartasync import reset_smartasync_cache, smartasync
+from genro_toolbox.smartasync import (
+    _async_mode,
+    is_async_context,
+    reset_smartasync_cache,
+    set_async,
+    set_sync,
+    smartasync,
+)
 
 
 class SimpleManager:
@@ -250,3 +257,83 @@ class TestBidirectional:
             lib.blocking_operation("item3"),
         )
         assert results == ["ITEM1", "ITEM2", "ITEM3"]
+
+
+class TestAsyncModeOverride:
+    """Tests for set_sync/set_async explicit mode override."""
+
+    def setup_method(self):
+        _async_mode.set(None)
+        reset_smartasync_cache()
+
+    def teardown_method(self):
+        _async_mode.set(None)
+        reset_smartasync_cache()
+
+    def test_default_is_auto_detect(self):
+        """No override: is_async_context returns False in sync context."""
+        assert _async_mode.get() is None
+        assert is_async_context() is False
+
+    @pytest.mark.asyncio
+    async def test_default_auto_detect_async(self):
+        """No override: is_async_context returns True in async context."""
+        assert _async_mode.get() is None
+        assert is_async_context() is True
+
+    def test_set_sync_forces_sync(self):
+        """set_sync() forces is_async_context to return False."""
+        set_sync()
+        assert is_async_context() is False
+
+    @pytest.mark.asyncio
+    async def test_set_sync_overrides_running_loop(self):
+        """set_sync() returns False even when a running loop exists."""
+        set_sync()
+        assert is_async_context() is False
+
+    @pytest.mark.asyncio
+    async def test_set_async_forces_async(self):
+        """set_async() forces is_async_context to return True."""
+        set_async()
+        assert is_async_context() is True
+
+    def test_set_async_forces_async_in_sync_context(self):
+        """set_async() returns True even without a running loop."""
+        set_async()
+        assert is_async_context() is True
+
+    def test_set_sync_cancel(self):
+        """set_sync(False) cancels override, back to auto-detect."""
+        set_sync()
+        assert is_async_context() is False
+        set_sync(False)
+        assert _async_mode.get() is None
+
+    def test_set_async_cancel(self):
+        """set_async(False) cancels override, back to auto-detect."""
+        set_async()
+        assert is_async_context() is True
+        set_async(False)
+        assert _async_mode.get() is None
+
+    def test_set_sync_smartasync_executes_sync(self):
+        """With set_sync(), @smartasync runs async method synchronously via per-thread loop."""
+        set_sync()
+
+        @smartasync
+        async def compute(x):
+            await asyncio.sleep(0.01)
+            return x * 2
+
+        result = compute(5)
+        assert result == 10
+
+    def test_set_sync_decorator_dispatch(self):
+        """set_sync() makes @smartasync dispatch as sync even inside running loop."""
+        set_sync()
+
+        obj = SimpleManager()
+        result = obj.async_method("override")
+        assert result == "Result: override"
+        assert obj.call_count == 1
