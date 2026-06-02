@@ -9,7 +9,6 @@ __version__ = "0.11.0"
 from .ascii_table import render_ascii_table, render_markdown_table
 from .decorators import extract_kwargs
 from .dict_utils import DictObj, SmartOptions, dictExtract
-from .pantry import Pantry
 from .smartasync import (
     SmartLock,
     is_async_context,
@@ -56,8 +55,4 @@ __all__ = [
     "smartretry",
     "retry_call",
     "RETRY_PRESETS",
-    "pantry",
-    "Pantry",
 ]
-
-pantry = Pantry()
