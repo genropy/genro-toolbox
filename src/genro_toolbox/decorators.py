@@ -11,6 +11,7 @@ from typing import Any, TypeVar
 from .dict_utils import dictExtract
 
 F = TypeVar("F", bound=Callable[..., Any])
+T = TypeVar("T")
 
 # Constants to avoid recreating dicts
 _DEFAULT_EXTRACT_OPTIONS = {"slice_prefix": True, "pop": False}
@@ -109,5 +110,44 @@ def extract_kwargs(
             return func(*args, **kwargs)
 
         return wrapper  # type: ignore
+
+    return decorator
+
+
+def metadata(*, prefix: str | None = None, **attributes: Any) -> Callable[[T], T]:
+    """A decorator that stamps keyword arguments as attributes on the target.
+
+    Works on both functions and classes: each keyword argument is written onto
+    the decorated object via ``setattr``. When ``prefix`` is given, the attribute
+    name becomes ``<prefix>_<key>``. The target is returned unchanged (identity),
+    so a decorated class stays instantiable and the attributes are visible on its
+    instances.
+
+    Args:
+        prefix: Optional prefix prepended to each attribute name as ``<prefix>_<key>``.
+        **attributes: Keyword arguments to stamp as attributes on the target.
+
+    Returns:
+        The decorated object itself, with the attributes set.
+
+    Example:
+        >>> @metadata(mixin_order=10)
+        ... class Core:
+        ...     pass
+        ...
+        >>> Core.mixin_order
+        10
+        >>> @metadata(prefix="rpc", public=True)
+        ... def handler():
+        ...     pass
+        ...
+        >>> handler.rpc_public
+        True
+    """
+
+    def decorator(target: T) -> T:
+        for key, value in attributes.items():
+            setattr(target, f"{prefix}_{key}" if prefix else key, value)
+        return target
 
     return decorator

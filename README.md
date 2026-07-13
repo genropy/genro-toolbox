@@ -34,6 +34,7 @@ pip install genro-toolbox
 - **TreeDict** - Hierarchical dict with dot notation and path access
 - **DictObj** - Dict subclass with dot-access for attribute-style read/write
 - **extract_kwargs** - Decorator to group kwargs by prefix
+- **metadata** - Decorator to stamp keyword arguments as attributes on functions or classes
 - **dictExtract** - Extract dict items by key prefix
 - **smartsplit** - Split strings honoring escaped separators
 - **get_uuid** - Sortable 22-char unique identifiers for distributed systems
@@ -164,6 +165,26 @@ my_function(
 )
 # logging: {'level': 'INFO', 'format': 'json'}
 # cache: {'ttl': 300}
+```
+
+### metadata Decorator
+
+Stamp keyword arguments as attributes on a function or class:
+
+```python
+from genro_toolbox import metadata
+
+@metadata(mixin_order=10)
+class Core:
+    pass
+
+Core.mixin_order        # 10
+
+@metadata(prefix="rpc", public=True)
+def handler():
+    pass
+
+handler.rpc_public      # True
 ```
 
 ### safe_is_instance
