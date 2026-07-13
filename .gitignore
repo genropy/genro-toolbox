@@ -87,3 +87,7 @@ venv.bak/
 
 # Ruff
 .ruff_cache/
+
+# Coordination (see worktree/subtask conventions)
+.subtasks/
+worktrees/
