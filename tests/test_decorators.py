@@ -1,6 +1,6 @@
-"""Tests for extract_kwargs decorator."""
+"""Tests for extract_kwargs and metadata decorators."""
 
-from genro_toolbox import extract_kwargs
+from genro_toolbox import extract_kwargs, metadata
 
 
 class DummyClass:
@@ -206,3 +206,76 @@ class TestExtractKwargsAdapter:
         result = obj.my_method(name="test", logging_level="INFO")
 
         assert result["logging"] == {"level": "INFO"}
+
+
+class TestMetadata:
+    """Tests for the metadata decorator."""
+
+    def test_function_target(self):
+        """Stamp a single attribute on a function."""
+
+        @metadata(public=True)
+        def handler():
+            return "ok"
+
+        assert handler.public is True
+        assert handler() == "ok"
+
+    def test_class_target(self):
+        """Stamp a single attribute on a class."""
+
+        @metadata(mixin_order=10)
+        class Core:
+            pass
+
+        assert Core.mixin_order == 10
+
+    def test_class_stays_instantiable(self):
+        """A decorated class remains instantiable and exposes the attribute on instances."""
+
+        @metadata(mixin_order=10)
+        class Core:
+            pass
+
+        instance = Core()
+        assert instance.mixin_order == 10
+
+    def test_prefix(self):
+        """With prefix, attribute names become <prefix>_<key>."""
+
+        @metadata(prefix="rpc", public=True)
+        def handler():
+            pass
+
+        assert handler.rpc_public is True
+        assert not hasattr(handler, "public")
+
+    def test_multiple_keys(self):
+        """All keyword arguments are stamped."""
+
+        @metadata(mixin_order=10, mixin_target="table", enabled=False)
+        class Core:
+            pass
+
+        assert Core.mixin_order == 10
+        assert Core.mixin_target == "table"
+        assert Core.enabled is False
+
+    def test_multiple_keys_with_prefix(self):
+        """Prefix is applied to every key."""
+
+        @metadata(prefix="meta", order=1, name="core")
+        def handler():
+            pass
+
+        assert handler.meta_order == 1
+        assert handler.meta_name == "core"
+
+    def test_returns_same_object(self):
+        """The decorator returns the target itself (identity)."""
+
+        def handler():
+            pass
+
+        decorated = metadata(tag="x")(handler)
+        assert decorated is handler
