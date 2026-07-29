@@ -4,12 +4,13 @@ Genro-Toolbox - Essential utilities for the Genro ecosystem (Genro Kyō).
 A lightweight, zero-dependency library providing core utilities.
 """
 
-__version__ = "0.13.0"
+__version__ = "0.14.0"
 
 from .ascii_table import render_ascii_table, render_markdown_table
 from .decorators import extract_kwargs, metadata
 from .dict_utils import DictObj, SmartOptions, dictExtract
 from .sentinels import MANDATORY
+from .signing import SignatureError, SignatureExpired, sign, verify
 from .smartasync import (
     SmartLock,
     is_async_context,
@@ -58,4 +59,8 @@ __all__ = [
     "retry_call",
     "RETRY_PRESETS",
     "MANDATORY",
+    "sign",
+    "verify",
+    "SignatureError",
+    "SignatureExpired",
 ]

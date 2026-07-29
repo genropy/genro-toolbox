@@ -38,6 +38,7 @@ pip install genro-toolbox
 - **dictExtract** - Extract dict items by key prefix
 - **smartsplit** - Split strings honoring escaped separators
 - **get_uuid** - Sortable 22-char unique identifiers for distributed systems
+- **sign / verify** - HMAC-signed payloads with optional expiry, for data that leaves the server and comes back
 - **smartasync** - Unified sync/async API with automatic context detection
 - **smarttimer** - Non-blocking timers (setTimeout/setInterval) with sync/async detection
 - **safe_is_instance** - isinstance() without importing the class
@@ -264,6 +265,43 @@ uid.isalnum() # True (URL-safe)
 ids = [get_uuid() for _ in range(3)]
 sorted(ids) == ids  # True (already sorted)
 ```
+
+### sign / verify
+
+Authenticate data that leaves the server and comes back — a payload handed to a
+client, put in a URL or a cookie, then returned to be acted upon. The key stays
+server-side: sign on the way out, verify on the way in.
+
+```python
+from genro_toolbox import sign, verify, SignatureError, SignatureExpired
+
+token = sign("/srv/data", key=SECRET, expires_in=300)
+# 'L3Nydi9kYXRh.MTc4NTMyMzIyMQ.FmMftICRb9MQVrFUwoo9qPCg-R5SYVpKmXA2oXQdmLg'
+
+verify(token, key=SECRET)   # '/srv/data'
+```
+
+Tampering and expiry are both rejected:
+
+```python
+try:
+    path = verify(token_from_client, key=SECRET)
+except SignatureExpired:
+    ...   # signature was valid, the token is just too old
+except SignatureError:
+    ...   # forged, altered, or signed with another key
+```
+
+The token is three base64url fields joined by `.`, so the payload round-trips
+byte for byte whatever it contains — separators, unicode, XML-unsafe characters:
+
+```python
+payload = '{"exclude": "*.tmp;*.bak"}'
+verify(sign(payload, key=SECRET), key=SECRET) == payload  # True
+```
+
+The expiry sits inside the signed area, so it cannot be stripped or extended.
+Omit `expires_in` for a token that never expires.
 
 ### smartasync
 
