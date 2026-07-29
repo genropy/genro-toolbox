@@ -8,15 +8,11 @@ from __future__ import annotations
 import asyncio
 import configparser
 import json
+import tomllib
 from collections.abc import Iterator
 from pathlib import Path
 from threading import RLock
 from typing import Any
-
-try:
-    import tomllib
-except ImportError:
-    tomllib = None  # type: ignore[assignment]
 
 try:
     import yaml
@@ -312,10 +308,6 @@ class TreeDict:
             with open(path) as f:
                 data = yaml.safe_load(f) or {}
         elif suffix == ".toml":
-            if tomllib is None:
-                raise ImportError(
-                    "tomli is required to load TOML files on Python < 3.11: pip install tomli"
-                )
             with open(path, "rb") as f:
                 data = tomllib.load(f)
         elif suffix == ".ini":

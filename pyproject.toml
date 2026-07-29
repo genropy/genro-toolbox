@@ -8,7 +8,7 @@ version = "0.14.0"
 description = "Essential utilities for Genro Kyō"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Genropy Team" }
 ]
@@ -66,10 +66,10 @@ exclude_lines = [
 
 [tool.black]
 line-length = 100
-target-version = ["py310"]
+target-version = ["py311"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 src = ["src"]
 
@@ -93,7 +93,7 @@ ignore = [
 known-first-party = ["genro_toolbox"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

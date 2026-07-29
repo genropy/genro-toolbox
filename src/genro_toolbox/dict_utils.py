@@ -8,16 +8,12 @@ import configparser
 import inspect
 import json
 import os
+import tomllib
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, get_type_hints
 
 from .treedict import TreeDict
-
-try:
-    import tomllib
-except ImportError:
-    tomllib = None  # type: ignore[assignment]
 
 try:
     import yaml
@@ -216,10 +212,6 @@ def _load_config_file(path: str | Path) -> dict[str, Any]:
         with open(path) as f:
             return json.load(f)
     elif suffix == ".toml":
-        if tomllib is None:
-            raise ImportError(
-                "tomli is required to load TOML files on Python < 3.11: pip install tomli"
-            )
         with open(path, "rb") as f:
             return tomllib.load(f)
     elif suffix == ".ini":
